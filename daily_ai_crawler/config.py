@@ -53,7 +53,7 @@ PROXIES = {
 REQUEST_TIMEOUT = 15          # 单次请求超时(秒)
 MAX_RETRIES = 2               # 最大重试次数
 RETRY_DELAY = 1.0             # 重试间隔(秒)
-POLITE_DELAY = 1.5            # 同域名请求间隔(秒)
+POLITE_DELAY = 1.0            # 同域名请求间隔(秒)
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 "
@@ -64,7 +64,7 @@ PARALLEL_LIMIT = 8            # 并发请求上限
 # ============================================================
 # 处理时限 (秒) — 硬性上限
 # ============================================================
-MAX_RUNTIME_SECONDS = 170     # 留10秒buffer给报告生成
+MAX_RUNTIME_SECONDS = 175     # 留buffer给报告+翻译+清理
 
 # ============================================================
 # 每个来源最大抓取条目数

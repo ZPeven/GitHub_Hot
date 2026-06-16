@@ -2,6 +2,7 @@
 RSS/Atom 订阅源抓取器
 """
 
+import asyncio
 import feedparser
 from datetime import datetime, timedelta
 from email.utils import parsedate_to_datetime
@@ -11,16 +12,17 @@ from config import MAX_ITEMS_PER_RSS
 
 
 class RSSFetcher(BaseCrawler):
-    """RSS 订阅源统一抓取"""
+    """RSS 订阅源统一抓取 — 多个RSS源并行请求"""
 
     async def crawl(self, sources: list[dict]) -> list[dict]:
         """并行抓取多个RSS源"""
+        rss_sources = [s for s in sources if s.get("type") == "rss" and s.get("enabled", True)]
+        tasks = [self._fetch_rss(src) for src in rss_sources]
+        src_results = await asyncio.gather(*tasks, return_exceptions=True)
         results = []
-        for src in sources:
-            if src.get("type") != "rss" or not src.get("enabled", True):
-                continue
-            items = await self._fetch_rss(src)
-            results.extend(items)
+        for r in src_results:
+            if isinstance(r, list):
+                results.extend(r)
         return results
 
     async def _fetch_rss(self, source: dict) -> list[dict]:

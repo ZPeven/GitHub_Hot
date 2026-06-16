@@ -102,17 +102,17 @@ class AIHotspotCrawler:
 
             # 8路并行抓取 (名称, 协程, 超时秒数)
             tasks = [
-                ("RSS订阅", rss.crawl(rss_sources), 40),
-                ("arXiv论文", arxiv_fetcher.crawl(), 40),
+                ("RSS订阅", rss.crawl(rss_sources), 60),
+                ("arXiv论文", arxiv_fetcher.crawl(), 50),
                 ("GitHub热点", github.crawl(), 40),
-                ("Semantic Scholar", semantic.crawl(), 45),
-                ("HF Daily Papers", hf_papers.crawl(), 30),
-                ("Web抓取", web.crawl(web_sources), 45),
-                ("南大专线", nju.crawl(), 45),
+                ("Semantic Scholar", semantic.crawl(), 50),
+                ("HF Daily Papers", hf_papers.crawl(), 40),
+                ("Web抓取", web.crawl(web_sources), 50),
+                ("南大专线", nju.crawl(), 50),
                 ("搜索发现", discovery.crawl(discovery_queries), 40),
             ]
 
-            async def run_with_name(name, coro, timeout=40):
+            async def run_with_name(name, coro, timeout=50):
                 try:
                     res = await asyncio.wait_for(coro, timeout=timeout)
                     return name, res, None
