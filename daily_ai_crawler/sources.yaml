@@ -1,0 +1,195 @@
+# ============================================================
+# 已知信息源数据库
+# type: rss | web | api
+# category: news | academic | code | community | official
+# priority: 1-10 (越大越优先)
+# enabled: true | false
+# ============================================================
+
+sources:
+  # ── RSS 订阅源 ──────────────────────────────
+  - name: "机器之心"
+    url: "https://www.jiqizhixin.com/rss"
+    type: rss
+    category: news
+    priority: 10
+    enabled: true
+    tags: [ai, china, professional]
+
+  - name: "量子位"
+    url: "https://www.qbitai.com/feed"
+    type: rss
+    category: news
+    priority: 10
+    enabled: true
+    tags: [ai, china, professional]
+
+  - name: "雷锋网-AI"
+    url: "https://www.leiphone.com/feed/ai"
+    type: rss
+    category: news
+    priority: 8
+    enabled: true
+    tags: [ai, china, technology]
+
+  - name: "36氪-AI"
+    url: "https://36kr.com/feed?cid=ai"
+    type: rss
+    category: news
+    priority: 7
+    enabled: true
+    tags: [ai, china, business]
+
+  - name: "Papers With Code"
+    url: "https://paperswithcode.com/feed/latest"
+    type: rss
+    category: academic
+    priority: 9
+    enabled: true
+    tags: [ai, academic, international]
+
+  # ── Web 抓取源 ─────────────────────────────
+  - name: "GitHub Trending"
+    url: "https://github.com/trending?since=daily"
+    type: web
+    category: code
+    priority: 9
+    enabled: true
+    tags: [github, open-source, trending]
+
+  - name: "GitHub Trending Python"
+    url: "https://github.com/trending/python?since=daily"
+    type: web
+    category: code
+    priority: 9
+    enabled: true
+    tags: [github, python, trending]
+
+  - name: "知乎AI热榜"
+    url: "https://www.zhihu.com/topic/19550901/hot"
+    type: web
+    category: community
+    priority: 6
+    enabled: true
+    tags: [zhihu, ai, china, hot]
+
+  - name: "掘金AI"
+    url: "https://juejin.cn/tag/AI"
+    type: web
+    category: community
+    priority: 5
+    enabled: true
+    tags: [juejin, ai, china, developer]
+
+  # ── API 源 ─────────────────────────────────
+  - name: "arXiv cs.AI"
+    url: "http://export.arxiv.org/api/query?search_query=cat:cs.AI&sortBy=submittedDate&sortOrder=descending&max_results=20"
+    type: api
+    category: academic
+    priority: 9
+    enabled: true
+    tags: [arxiv, ai, academic]
+
+  - name: "arXiv cs.LG"
+    url: "http://export.arxiv.org/api/query?search_query=cat:cs.LG&sortBy=submittedDate&sortOrder=descending&max_results=20"
+    type: api
+    category: academic
+    priority: 9
+    enabled: true
+    tags: [arxiv, ml, academic]
+
+  - name: "arXiv cs.CL"
+    url: "http://export.arxiv.org/api/query?search_query=cat:cs.CL&sortBy=submittedDate&sortOrder=descending&max_results=20"
+    type: api
+    category: academic
+    priority: 8
+    enabled: true
+    tags: [arxiv, nlp, academic]
+
+  - name: "arXiv cs.MA"
+    url: "http://export.arxiv.org/api/query?search_query=cat:cs.MA&sortBy=submittedDate&sortOrder=descending&max_results=10"
+    type: api
+    category: academic
+    priority: 7
+    enabled: true
+    tags: [arxiv, multi-agent, academic]
+
+  # ── 南京大学专项 ───────────────────────────
+  - name: "NJU CS News"
+    url: "https://cs.nju.edu.cn/ai_news/list.htm"
+    type: web
+    category: official
+    priority: 10
+    enabled: true
+    tags: [nju, official, china]
+
+  - name: "NJU AI School"
+    url: "https://ai.nju.edu.cn/ai_news/list.htm"
+    type: web
+    category: official
+    priority: 10
+    enabled: true
+    tags: [nju, official, china]
+
+  - name: "NJU LAMDA Group"
+    url: "https://www.lamda.nju.edu.cn/CH.Publication.ashx"
+    type: web
+    category: academic
+    priority: 10
+    enabled: true
+    tags: [nju, academic, china]
+
+  # ── 搜索引擎发现源 ─────────────────────────
+  - name: "Bing News AI"
+    url: "https://www.bing.com/news/search?q=AI+artificial+intelligence&format=rss"
+    type: rss
+    category: news
+    priority: 5
+    enabled: true
+    tags: [search, discovery, ai]
+
+  - name: "Bing News LLM"
+    url: "https://www.bing.com/news/search?q=large+language+model+LLM+GPT&format=rss"
+    type: rss
+    category: news
+    priority: 5
+    enabled: true
+    tags: [search, discovery, llm]
+
+# ============================================================
+# 搜索发现模板 (用于发现陌生网站)
+# ============================================================
+discovery_queries:
+  - engine: bing_news
+    query: "AI Agent 最新进展"
+    max_results: 8
+  - engine: bing_news
+    query: "大模型 突破 2025"
+    max_results: 8
+  - engine: bing_news
+    query: "强化学习 应用"
+    max_results: 6
+  - engine: bing_news
+    query: "脉冲神经网络 类脑计算"
+    max_results: 6
+  - engine: bing_news
+    query: "Nanjing University AI publication"
+    max_results: 10
+  - engine: bing_news
+    query: "南京大学 人工智能 最新成果"
+    max_results: 10
+
+# ============================================================
+# GitHub 专项搜索配置
+# ============================================================
+github_queries:
+  - topic: llm
+    keywords: [llm, large-language-model, chatgpt-alternative, open-source-llm]
+  - topic: machine-learning
+    keywords: [machine-learning, deep-learning, ml-framework]
+  - topic: ai-agent
+    keywords: [ai-agent, autonomous-agent, agent-framework, llm-agent]
+  - topic: reinforcement-learning
+    keywords: [reinforcement-learning, rl, deep-rl]
+  - topic: nanjing-university
+    keywords: [nanjing-university, NJU, nju-ai]
