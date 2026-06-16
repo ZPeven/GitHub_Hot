@@ -17,7 +17,7 @@ import aiohttp
 
 from config import (
     SOURCES_FILE, MAX_RUNTIME_SECONDS, MAX_REPORT_ITEMS,
-    USER_AGENT, PROXIES, DOMAIN_KEYWORDS, REPORTS_DIR,
+    USER_AGENT, PROXIES, DOMAIN_KEYWORDS,
 )
 from database import Database, make_fingerprint
 from crawlers import (
@@ -257,24 +257,7 @@ class AIHotspotCrawler:
         return report_path
 
     def _cleanup(self):
-        """清理过期缓存和旧报告"""
-        import glob
-        # 清理30天前的旧报告
-        cutoff = datetime.date.today() - datetime.timedelta(days=30)
-        old_reports = glob.glob(os.path.join(REPORTS_DIR, "*.md"))
-        cleaned = 0
-        for f in old_reports:
-            try:
-                basename = os.path.basename(f)
-                date_str = basename[:10]  # YYYY-MM-DD
-                if date_str < cutoff.isoformat():
-                    os.remove(f)
-                    cleaned += 1
-            except (ValueError, OSError):
-                pass
-        if cleaned:
-            print(f"   🧹 清理了 {cleaned} 份旧报告 (>{cutoff.isoformat()})")
-
+        """清理运行时缓存（不删除报告）"""
         # SQLite WAL checkpoint (压缩wal文件)
         try:
             self.db.conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
