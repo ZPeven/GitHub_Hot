@@ -28,6 +28,7 @@ from crawlers import (
 from processors import (
     ChineseNLP, Deduplicator, Classifier, RelevanceScorer,
 )
+from processors.translator import Translator
 from reporter import Reporter
 
 
@@ -160,8 +161,21 @@ class AIHotspotCrawler:
             # ── 阶段5: 截取TopN ──────────────────────
             final_items = filtered[:MAX_REPORT_ITEMS]
 
-            # ── 阶段6: 存入数据库 ────────────────────
-            print("\n💾 [阶段5] 存入数据库...")
+            # ── 阶段6: 中英翻译 (DeepSeek API) ────────
+            print("\n🌐 [阶段6] 中英双语翻译中...")
+            phase6_start = time.monotonic()
+            translator = Translator()
+            if translator.enabled:
+                final_items = await translator.translate_all(final_items)
+                translated_count = sum(1 for it in final_items if it.get("title_en"))
+                print(f"   已翻译 {translated_count} 条标题")
+                await translator.close()
+            else:
+                print("   ⚠️  未配置 DeepSeek API Key，跳过翻译")
+            print(f"   ⏱️  阶段6完成 ({time.monotonic() - phase6_start:.1f}s)")
+
+            # ── 阶段7: 存入数据库 ────────────────────
+            print("\n💾 [阶段7] 存入数据库...")
             phase5_start = time.monotonic()
             today = datetime.date.today().isoformat()
             saved = 0
@@ -186,7 +200,7 @@ class AIHotspotCrawler:
                     )
                     discovered_count += 1
             print(f"   已保存 {saved} 条, 发现 {discovered_count} 个新网站")
-            print(f"   ⏱️  阶段5完成 ({time.monotonic() - phase5_start:.1f}s)")
+            print(f"   ⏱️  阶段7完成 ({time.monotonic() - phase5_start:.1f}s)")
 
         # ── 统计 ─────────────────────────────────────
         nju_count = sum(1 for it in final_items if it.get("is_nju"))
@@ -214,8 +228,8 @@ class AIHotspotCrawler:
             "exceptions": len(exceptions),
         }
 
-        # ── 阶段6: 生成报告 ─────────────────────────
-        print(f"\n📝 [阶段6] 生成Markdown报告...")
+        # ── 阶段8: 生成报告 ─────────────────────────
+        print(f"\n📝 [阶段8] 生成Markdown报告...")
         report_content = self.reporter.generate(final_items, self.stats)
         report_path = self.reporter.save(report_content, today)
         print(f"   报告已保存: {report_path}")

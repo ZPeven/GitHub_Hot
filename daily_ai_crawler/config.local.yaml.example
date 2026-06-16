@@ -10,6 +10,11 @@
 # 不配置也可运行，但API速率限制为 60次/小时 (配置后为 5000次/小时)
 github_token: ""
 
+# DeepSeek API Key (可选，用于中英双语翻译)
+# 获取: https://platform.deepseek.com → API Keys
+# 不配置则报告仅显示原标题（无翻译）
+deepseek_api_key: ""
+
 # HTTP/HTTPS 代理 (可选，需要梯子时填写)
 # 例如: "http://127.0.0.1:你的端口"
 proxy: ""

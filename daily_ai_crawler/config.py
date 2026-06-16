@@ -27,8 +27,14 @@ DB_FILE = os.path.join(BASE_DIR, "crawler.db")
 # API 密钥配置 (敏感信息 → config.local.yaml)
 # ============================================================
 GITHUB_TOKEN = _LOCAL_CONFIG.get("github_token", "")
+DEEPSEEK_API_KEY = _LOCAL_CONFIG.get("deepseek_api_key", "")
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-v4-pro"
 SEMANTIC_SCHOLAR_URL = "https://api.semanticscholar.org/graph/v1"
 HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
+
+# 翻译并发数 (≤200)
+TRANSLATION_CONCURRENCY = 30
 
 # ============================================================
 # 代理配置 (敏感信息 → config.local.yaml)

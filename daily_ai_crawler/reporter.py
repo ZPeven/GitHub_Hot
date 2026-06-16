@@ -69,13 +69,19 @@ class Reporter:
             lines.append(f"|---|------|------|------|")
 
             for i, item in enumerate(domain_items, 1):
-                title = item.get("title", "Untitled")[:80]
+                title = item.get("title", "Untitled")
+                title_en = item.get("title_en", "")
                 url = item.get("url", "#")
                 source = item.get("source_name", "Unknown")[:15]
                 score = item.get("relevance_score", 0)
                 nju_flag = " 🏫" if item.get("is_nju") else ""
 
-                lines.append(f"| {i} | [{title}]({url}){nju_flag} | {source} | {score:.1f} |")
+                # 双语标题显示
+                if title_en and title_en != title:
+                    display = f"{title[:60]}<br>🇬🇧 {title_en[:60]}"
+                else:
+                    display = title[:80]
+                lines.append(f"| {i} | {display}{nju_flag} | {source} | {score:.1f} |")
 
             # 热门话题摘要
             lines.append(f"")
@@ -84,9 +90,13 @@ class Reporter:
             top_items = domain_items[:5]
             for i, item in enumerate(top_items, 1):
                 title = item.get("title", "Untitled")
+                title_en = item.get("title_en", "")
                 summary = item.get("summary", "")
                 if summary:
-                    lines.append(f"**{i}. {title}**")
+                    if title_en and title_en != title:
+                        lines.append(f"**{i}. {title}** / {title_en}")
+                    else:
+                        lines.append(f"**{i}. {title}**")
                     lines.append(f"> {summary[:200]}")
                     lines.append(f"")
 

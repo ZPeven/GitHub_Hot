@@ -11,7 +11,7 @@
 | 能力 | 说明 |
 |------|------|
 | 🕷️ **8路并行抓取** | RSS / arXiv / GitHub / Semantic Scholar / HuggingFace Daily Papers / Web / NJU / Discovery |
-| 🏷️ **6领域分类** | LLM · LWM · SNN · RL · ML · Agent |
+| 🌐 **中英双语** | DeepSeek API 自动翻译新闻标题，报告双语对照 |
 | 🏫 **NJU 专项** | 268 人 LAMDA 成员名单 + 中英文姓名精准匹配 |
 | 🔍 **智能去重** | URL 规范化 + 内容指纹 + 标题相似度三重去重 |
 | ⭐ **相关性评分** | 7 维度评分过滤低质内容 |
@@ -52,6 +52,11 @@ cp config.local.yaml.example config.local.yaml
 # 获取: https://github.com/settings/tokens → Generate new token (classic)
 # 权限: 只勾选 public_repo 即可
 github_token: "ghp_xxxxxxxxxxxx"
+
+# DeepSeek API Key (可选，用于新闻标题中英双语翻译)
+# 获取: https://platform.deepseek.com → API Keys
+# 不配置则报告仅显示原标题
+deepseek_api_key: "sk-xxxxxxxxxxxx"
 
 # 代理配置（仅中国大陆用户需要）
 # 国外用户保持 use_proxy: false 即可
@@ -283,6 +288,16 @@ crontab -e
 <summary><b>GitHub API 返回 403？</b></summary>
 
 未配置 Token 时 API 限制为 60次/小时。编辑 `config.local.yaml` 添加 `github_token`。
+</details>
+
+<details>
+<summary><b>如何启用中英双语翻译？</b></summary>
+
+在 [DeepSeek 开放平台](https://platform.deepseek.com) 申请 API Key，编辑 `config.local.yaml`：
+```yaml
+deepseek_api_key: "sk-xxxxxxxxxxxx"
+```
+仅翻译新闻标题（论文标题和项目名保持原文）。DeepSeek 为国内服务，通常不需要代理。
 </details>
 
 <details>
