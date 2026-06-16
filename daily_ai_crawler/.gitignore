@@ -14,3 +14,8 @@ envs/
 # Reports are generated daily, keep in git only the latest
 reports/
 !reports/.gitkeep
+# Local sensitive config (token, proxy)
+config.local.yaml
+
+# VSCode
+.vscode/

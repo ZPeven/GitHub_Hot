@@ -1,8 +1,19 @@
 """
 每日AI热点爬虫 — 全局配置
+敏感信息 (Token/代理) 请放在 config.local.yaml (已gitignore)
 """
 
 import os
+import yaml
+
+# ============================================================
+# 加载本地配置 (config.local.yaml，gitignore不提交)
+# ============================================================
+_LOCAL_CONFIG = {}
+_local_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.local.yaml")
+if os.path.exists(_local_path):
+    with open(_local_path, "r", encoding="utf-8") as f:
+        _LOCAL_CONFIG = yaml.safe_load(f) or {}
 
 # ============================================================
 # 项目路径
@@ -13,22 +24,22 @@ SOURCES_FILE = os.path.join(BASE_DIR, "sources.yaml")
 DB_FILE = os.path.join(BASE_DIR, "crawler.db")
 
 # ============================================================
-# API 密钥配置
+# API 密钥配置 (敏感信息 → config.local.yaml)
 # ============================================================
-GITHUB_TOKEN = "REMOVED_OLD_TOKEN"
+GITHUB_TOKEN = _LOCAL_CONFIG.get("github_token", "")
 SEMANTIC_SCHOLAR_URL = "https://api.semanticscholar.org/graph/v1"
 HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
 
 # ============================================================
-# 代理配置 (梯子)
+# 代理配置 (敏感信息 → config.local.yaml)
 # ============================================================
-PROXY_URL = "http://127.0.0.1:10101"
-USE_PROXY = True
+PROXY_URL = _LOCAL_CONFIG.get("proxy", "")
+USE_PROXY = _LOCAL_CONFIG.get("use_proxy", False)
 
 PROXIES = {
     "http": PROXY_URL,
     "https": PROXY_URL,
-} if USE_PROXY else None
+} if USE_PROXY and PROXY_URL else None
 
 # ============================================================
 # 请求配置
