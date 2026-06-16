@@ -17,7 +17,7 @@ import aiohttp
 
 from config import (
     SOURCES_FILE, MAX_RUNTIME_SECONDS, MAX_REPORT_ITEMS,
-    USER_AGENT, PROXIES, DOMAIN_KEYWORDS,
+    USER_AGENT, PROXIES, DOMAIN_KEYWORDS, REPORTS_DIR,
 )
 from database import Database, make_fingerprint
 from crawlers import (
@@ -165,13 +165,15 @@ class AIHotspotCrawler:
             print("\n🌐 [阶段6] 中英双语翻译中...")
             phase6_start = time.monotonic()
             translator = Translator()
-            if translator.enabled:
-                final_items = await translator.translate_all(final_items)
-                translated_count = sum(1 for it in final_items if it.get("title_en"))
-                print(f"   已翻译 {translated_count} 条标题")
+            try:
+                if translator.enabled:
+                    final_items = await translator.translate_all(final_items)
+                    translated_count = sum(1 for it in final_items if it.get("title_en"))
+                    print(f"   已翻译 {translated_count} 条标题")
+                else:
+                    print("   ⚠️  未配置 DeepSeek API Key，跳过翻译")
+            finally:
                 await translator.close()
-            else:
-                print("   ⚠️  未配置 DeepSeek API Key，跳过翻译")
             print(f"   ⏱️  阶段6完成 ({time.monotonic() - phase6_start:.1f}s)")
 
             # ── 阶段7: 存入数据库 ────────────────────
@@ -245,11 +247,39 @@ class AIHotspotCrawler:
             categories=",".join(domain_counts.keys()),
         )
 
+        # ── 清理缓存 ────────────────────────────────
+        self._cleanup()
+
         print(f"\n✨ 全部完成! 耗时 {total_elapsed:.1f}s")
         print(f"   📊 报告: {report_path}")
         print(f"   📦 数据库: {self.db.conn.execute('SELECT COUNT(*) FROM history').fetchone()[0]} 条历史记录")
 
         return report_path
+
+    def _cleanup(self):
+        """清理过期缓存和旧报告"""
+        import glob
+        # 清理30天前的旧报告
+        cutoff = datetime.date.today() - datetime.timedelta(days=30)
+        old_reports = glob.glob(os.path.join(REPORTS_DIR, "*.md"))
+        cleaned = 0
+        for f in old_reports:
+            try:
+                basename = os.path.basename(f)
+                date_str = basename[:10]  # YYYY-MM-DD
+                if date_str < cutoff.isoformat():
+                    os.remove(f)
+                    cleaned += 1
+            except (ValueError, OSError):
+                pass
+        if cleaned:
+            print(f"   🧹 清理了 {cleaned} 份旧报告 (>{cutoff.isoformat()})")
+
+        # SQLite WAL checkpoint (压缩wal文件)
+        try:
+            self.db.conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception:
+            pass
 
     def _load_sources(self) -> list[dict]:
         """加载信息源配置"""
