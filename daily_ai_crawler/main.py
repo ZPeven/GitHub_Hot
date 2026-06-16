@@ -175,7 +175,7 @@ class AIHotspotCrawler:
             try:
                 if translator.enabled:
                     final_items = await translator.translate_all(final_items)
-                    translated_count = sum(1 for it in final_items if it.get("title_en"))
+                    translated_count = sum(1 for it in final_items if it.get("title_zh"))
                     print(f"   已翻译 {translated_count} 条标题")
                 else:
                     print("   ⚠️  未配置 DeepSeek API Key，跳过翻译")

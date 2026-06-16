@@ -70,15 +70,15 @@ class Reporter:
 
             for i, item in enumerate(domain_items, 1):
                 title = item.get("title", "Untitled")
-                title_en = item.get("title_en", "")
+                title_zh = item.get("title_zh", "")
                 url = item.get("url", "#")
                 source = item.get("source_name", "Unknown")[:15]
                 score = item.get("relevance_score", 0)
                 nju_flag = " 🏫" if item.get("is_nju") else ""
 
-                # 双语标题显示
-                if title_en and title_en != title:
-                    display = f"{title[:60]}<br>🇬🇧 {title_en[:60]}"
+                # 双语显示：非中文标题附加中文翻译
+                if title_zh and title_zh != title:
+                    display = f"{title[:60]}<br>🇨🇳 {title_zh[:60]}"
                 else:
                     display = title[:80]
                 lines.append(f"| {i} | {display}{nju_flag} | {source} | {score:.1f} |")
@@ -90,11 +90,12 @@ class Reporter:
             top_items = domain_items[:5]
             for i, item in enumerate(top_items, 1):
                 title = item.get("title", "Untitled")
-                title_en = item.get("title_en", "")
+                title_zh = item.get("title_zh", "")
                 summary = item.get("summary", "")
                 if summary:
-                    if title_en and title_en != title:
-                        lines.append(f"**{i}. {title}** / {title_en}")
+                    if title_zh and title_zh != title:
+                        lines.append(f"**{i}. {title}**")
+                        lines.append(f"   🇨🇳 {title_zh}")
                     else:
                         lines.append(f"**{i}. {title}**")
                     lines.append(f"> {summary[:200]}")

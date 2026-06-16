@@ -1,6 +1,6 @@
 """
-DeepSeek API 中英双语翻译器
-— 仅翻译新闻标题，不翻译论文标题/项目名/URL
+DeepSeek API 翻译器 — 非中文内容统一翻译为中文
+仅跳过: 项目名、owner/repo、URL、已有中文的标题
 """
 
 import asyncio
@@ -14,7 +14,7 @@ from config import (
 
 
 class Translator:
-    """DeepSeek API 翻译器 — 仅翻译新闻标题（论文标题和项目名保持原文）"""
+    """DeepSeek API 翻译器 — 非中文→中文，单向批量翻译"""
 
     CHAT_URL = f"{DEEPSEEK_BASE_URL}/chat/completions"
 
@@ -37,7 +37,7 @@ class Translator:
     def enabled(self) -> bool:
         return bool(DEEPSEEK_API_KEY)
 
-    # ── 语言检测 ──────────────────────────────
+    # ── 过滤 ──────────────────────────────────
 
     @staticmethod
     def _has_chinese(text: str) -> bool:
@@ -45,37 +45,23 @@ class Translator:
 
     @staticmethod
     def _should_translate(item: dict) -> bool:
-        """
-        判断标题是否需要翻译：
-        - 跳过学术论文标题
-        - 跳过 GitHub 项目名（含 owner/repo 格式）
-        - 跳过太短的标题
-        - 跳过日文/韩文等非中非英标题
-        """
-        source_type = item.get("source_type", "")
-        source_name = item.get("source_name", "")
+        """仅跳过：项目名、owner/repo格式、URL、已有中文的"""
         title = item.get("title", "")
 
-        # 不翻译论文标题
-        if source_type == "api" and ("arxiv" in source_name.lower() or
-                                       "semantic scholar" in source_name.lower() or
-                                       "hf daily" in source_name.lower()):
+        # 已有中文 → 不翻译
+        if Translator._has_chinese(title):
             return False
 
-        # 不翻译 GitHub 项目名
+        # GitHub 项目名
         if item.get("is_github"):
             return False
 
-        # 不翻译 owner/repo 格式的标题（如 "PaddlePaddle/Paddle" 或 "owner / repo"）
+        # owner/repo 格式 (如 "PaddlePaddle/Paddle" 或 "owner / repo")
         if re.match(r'^[\w.-]+\s*/\s*[\w.-]+$', title.strip()):
             return False
 
-        # 不翻译太短的标题
+        # 太短
         if len(title) < 8:
-            return False
-
-        # 不翻译日文标题（含平假名/片假名）— 仅翻译中英双语
-        if re.search(r'[぀-ゟ゠-ヿ]', title):
             return False
 
         return True
@@ -83,35 +69,27 @@ class Translator:
     # ── 批量翻译 ──────────────────────────────
 
     async def translate_all(self, items: list[dict]) -> list[dict]:
-        """批量翻译所有需要翻译的标题（按语言方向分批）"""
+        """批量翻译所有非中文标题 → 中文"""
         if not self.enabled:
             return items
 
         await self._ensure_session()
 
-        # 过滤需要翻译的条目，并按语言方向分组
         to_translate = [it for it in items if self._should_translate(it)]
         if not to_translate:
             return items
 
-        cn_items = [it for it in to_translate if self._has_chinese(it["title"])]
-        en_items = [it for it in to_translate if not self._has_chinese(it["title"])]
-
-        tasks = []
+        # 分批（每批最多20条）
         batch_size = 20
-        for batch in [cn_items[i:i + batch_size] for i in range(0, len(cn_items), batch_size)]:
-            if batch:
-                tasks.append(self._translate_batch(batch, "zh2en"))
-        for batch in [en_items[i:i + batch_size] for i in range(0, len(en_items), batch_size)]:
-            if batch:
-                tasks.append(self._translate_batch(batch, "en2zh"))
+        batches = [to_translate[i:i + batch_size] for i in range(0, len(to_translate), batch_size)]
 
+        tasks = [self._translate_batch(batch, i) for i, batch in enumerate(batches)]
         await asyncio.gather(*tasks, return_exceptions=True)
 
         return items
 
-    async def _translate_batch(self, items: list[dict], direction: str):
-        """翻译一批标题"""
+    async def _translate_batch(self, items: list[dict], batch_idx: int):
+        """翻译一批非中文标题 → 中文"""
         async with self._semaphore:
             try:
                 titles = []
@@ -120,20 +98,17 @@ class Translator:
 
                 titles_text = "\n".join(titles)
 
-                if direction == "zh2en":
-                    direction_prompt = "将以下中文标题翻译成英文，只返回翻译结果，保持编号格式"
-                else:
-                    direction_prompt = "Translate the following English titles into Chinese. Only return translations, keep the number format"
-
                 system_prompt = (
-                    "You are a professional translator for AI/tech news headlines. "
-                    "Translate accurately and concisely. "
-                    "Keep technical terms in their original form (LLM, RAG, RLHF, etc.). "
-                    "Do NOT add explanations, notes, or extra text. "
-                    "Output ONLY the translated titles, one per line, keeping the [N] prefix."
+                    "You are a professional translator. "
+                    "Translate the following titles into Simplified Chinese (简体中文). "
+                    "Rules:\n"
+                    "- Keep technical terms untranslated (LLM, RAG, RLHF, API, GPU, etc.)\n"
+                    "- Keep proper nouns (company names, model names, person names) in original form\n"
+                    "- Keep the [N] prefix for each line\n"
+                    "- Output ONLY translated lines, no explanations"
                 )
 
-                user_message = f"{direction_prompt}:\n\n{titles_text}"
+                user_message = f"Translate these titles to Chinese:\n\n{titles_text}"
 
                 headers = {
                     "Content-Type": "application/json",
@@ -151,9 +126,7 @@ class Translator:
                 }
 
                 async with self.session.post(
-                    self.CHAT_URL,
-                    headers=headers,
-                    json=payload,
+                    self.CHAT_URL, headers=headers, json=payload,
                     proxy=PROXIES["http"] if PROXIES else None,
                 ) as resp:
                     if resp.status != 200:
@@ -161,16 +134,13 @@ class Translator:
 
                     data = await resp.json()
                     msg = data["choices"][0]["message"]
-                    # deepseek-v4-pro 推理模型：content可能为空，实际输出在reasoning_content
                     content = (msg.get("content") or msg.get("reasoning_content") or "").strip()
 
-                    # 如果reasoning_content很长，取最后一段(推理后的结论部分)
+                    # 从reasoning_content中提取翻译结果（如果content为空）
                     if not content or len(content) < 10:
                         reasoning = msg.get("reasoning_content", "")
                         if reasoning:
-                            # 取推理内容的最后有效输出行
                             lines = reasoning.strip().split("\n")
-                            # 从后往前找翻译结果行
                             translated_lines = []
                             for line in reversed(lines):
                                 line = line.strip()
@@ -186,18 +156,16 @@ class Translator:
                         match = re.match(r'\[(\d+)\]\s*(.+)', line)
                         if match:
                             idx = int(match.group(1))
-                            text = match.group(2).strip()
-                            translations[idx] = text
+                            text = match.group(2).strip().strip('"\'').strip()
+                            if text:
+                                translations[idx] = text
 
-                    # 赋值到对应条目
+                    # 赋值
                     for i, item in enumerate(items):
                         if i in translations:
-                            translated = translations[i]
-                            # 清理多余的引号和标记
-                            translated = translated.strip('"\'').strip()
-                            if translated and translated != item["title"]:
-                                item["title_en"] = translated
+                            zh = translations[i]
+                            if zh and zh != item["title"]:
+                                item["title_zh"] = zh
 
             except Exception:
-                # 翻译失败不阻塞主流程
                 pass
