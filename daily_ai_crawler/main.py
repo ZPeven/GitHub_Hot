@@ -2,6 +2,13 @@
 """
 🔥 AI技术热点日报爬虫 — 主入口
 每日运行一次，3分钟内完成抓取、处理、报告生成
+
+免责声明 / DISCLAIMER:
+  本软件仅供个人学习研究使用。使用者应遵守各信息源的使用条款、
+  robots.txt 协议及当地法律法规。所有抓取内容版权归原作者所有。
+  本软件不用于任何商业目的。
+
+  This software is for PERSONAL EDUCATIONAL USE ONLY.
 """
 
 import os
