@@ -1,0 +1,43 @@
+MIT License
+
+Copyright (c) 2025 AI Hotspot Crawler Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Disclaimer / 免责声明
+
+This software is for **PERSONAL EDUCATIONAL USE ONLY**.
+
+1. **Non-Commercial**: This project may not be used for any commercial purpose.
+2. **Copyright**: All content retrieved by this software belongs to its original
+   authors and publishing platforms.
+3. **Compliance**: This software respects robots.txt, implements polite delays
+   (>=1.5s between requests), limits per-source items, and uses an identifiable
+   User-Agent. It does not bypass any anti-crawling mechanisms.
+4. **API Terms**: All third-party APIs (GitHub, arXiv, Semantic Scholar,
+   HuggingFace, DeepSeek) are accessed via official public endpoints in
+   compliance with their respective terms of service.
+5. **No Warranty**: THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
+   KIND. The authors shall not be liable for any damages arising from its use.
+6. **User Responsibility**: Users are responsible for ensuring their use
+   complies with local laws and target website Terms of Service.
+
+本软件仅供**个人学习研究**使用，不得用于任何商业目的。
