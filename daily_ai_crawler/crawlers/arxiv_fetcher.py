@@ -5,7 +5,8 @@ arXiv API 论文抓取器
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from crawlers.base import BaseCrawler
-from config import MAX_ITEMS_PER_ARXIV, NJU_KEYWORDS, DOMAIN_KEYWORDS
+from config import MAX_ITEMS_PER_ARXIV, DOMAIN_KEYWORDS
+from processors.lamda_matcher import check_nju
 
 
 class ArxivFetcher(BaseCrawler):
@@ -56,13 +57,9 @@ class ArxivFetcher(BaseCrawler):
                 if not title_text or not link_text:
                     continue
 
-                # 南大作者检测
-                is_nju = False
+                # LAMDA成员 + NJU精确匹配
                 all_text = title_text + " " + summary_text + " " + " ".join(author_list) + " " + comment_text
-                for kw in NJU_KEYWORDS:
-                    if kw.lower() in all_text.lower():
-                        is_nju = True
-                        break
+                is_nju = check_nju(all_text, author_list)
 
                 # arXiv链接转换
                 arxiv_id = link_text.split("/abs/")[-1] if "/abs/" in link_text else ""

@@ -7,9 +7,9 @@ import asyncio
 import urllib.parse
 from crawlers.base import BaseCrawler
 from config import (
-    SEMANTIC_SCHOLAR_URL, MAX_ITEMS_SEMANTIC_SCHOLAR,
-    NJU_KEYWORDS, DOMAIN_KEYWORDS,
+    SEMANTIC_SCHOLAR_URL, MAX_ITEMS_SEMANTIC_SCHOLAR, DOMAIN_KEYWORDS,
 )
+from processors.lamda_matcher import check_nju
 
 
 class SemanticScholarFetcher(BaseCrawler):
@@ -22,14 +22,13 @@ class SemanticScholarFetcher(BaseCrawler):
         """并行搜索：AI热门方向 + 南大专项"""
         results = []
 
-        # 按AI主题搜索 + 南大专项搜索，并行执行
+        # 按AI主题搜索 + 南大专项搜索
         search_tasks = [
-            self._search("large language model agent 2025 2026", "Semantic Scholar: LLM+Agent", 8),
-            self._search("reinforcement learning deep RL 2025", "Semantic Scholar: RL", 6),
-            self._search("spiking neural network neuromorphic", "Semantic Scholar: SNN", 5),
-            self._search("world model video generation embodied AI", "Semantic Scholar: LWM", 5),
-            self._search("machine learning trend breakthrough 2025", "Semantic Scholar: ML", 5),
-            self._search_nju(),  # 南大专项
+            self._search("large language model agent 2025 2026", "Semantic Scholar: LLM+Agent", 6),
+            self._search("reinforcement learning deep RL", "Semantic Scholar: RL", 4),
+            self._search("spiking neural network neuromorphic", "Semantic Scholar: SNN", 3),
+            self._search("world model embodied AI video generation", "Semantic Scholar: LWM", 3),
+            self._search_nju(),
         ]
 
         task_results = await asyncio.gather(*search_tasks, return_exceptions=True)
@@ -69,8 +68,11 @@ class SemanticScholarFetcher(BaseCrawler):
                 if not title or not paper_url:
                     continue
 
-                # 南大检测
-                is_nju = self._check_nju(title, abstract, authors, venue)
+                # LAMDA成员 + NJU精确匹配
+                is_nju = check_nju(
+                    f"{title} {abstract} {venue}",
+                    authors,
+                )
 
                 # 来源标注
                 venue_str = f" [{venue}]" if venue else ""
@@ -100,16 +102,13 @@ class SemanticScholarFetcher(BaseCrawler):
         """南大论文专项搜索 — Semantic Scholar 核心优势：可按机构搜"""
         items = []
 
-        # 多个搜索策略覆盖不同署名方式
+        # 合并搜索策略（减少API调用，免费版100次/5分钟）
         nju_queries = [
-            "Nanjing University artificial intelligence",
-            "Nanjing University machine learning",
-            "Nanjing University large language model",
-            "NJU computer science deep learning",
-            "NJU LAMDA",  # 周志华实验室
+            "Nanjing University machine learning large language model agent",
+            "NJU LAMDA deep learning computer science",
         ]
 
-        tasks = [self._search(q, "Semantic Scholar: NJU", 5) for q in nju_queries]
+        tasks = [self._search(q, "Semantic Scholar: NJU", 8) for q in nju_queries]
         task_results = await asyncio.gather(*tasks, return_exceptions=True)
 
         seen = set()
@@ -124,16 +123,3 @@ class SemanticScholarFetcher(BaseCrawler):
                         items.append(item)
 
         return items
-
-    def _check_nju(self, title: str, abstract: str, authors: list, venue: str) -> bool:
-        """检测是否南京大学相关"""
-        all_text = f"{title} {abstract} {' '.join(authors)} {venue}".lower()
-        # 排除 Nanjing University of Posts and Telecommunications (南邮)
-        if "nanjing university of posts" in all_text:
-            return False
-        if "nanjing university of science" in all_text:
-            return False
-        for kw in NJU_KEYWORDS:
-            if kw.lower() in all_text:
-                return True
-        return False

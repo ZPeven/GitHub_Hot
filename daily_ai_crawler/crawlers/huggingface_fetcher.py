@@ -5,7 +5,8 @@ HuggingFace Daily Papers 抓取器 (免费免申请)
 
 import datetime
 from crawlers.base import BaseCrawler
-from config import HF_DAILY_PAPERS_URL, MAX_ITEMS_HF_PAPERS, NJU_KEYWORDS
+from config import HF_DAILY_PAPERS_URL, MAX_ITEMS_HF_PAPERS
+from processors.lamda_matcher import check_nju
 
 
 class HuggingFaceFetcher(BaseCrawler):
@@ -67,13 +68,9 @@ class HuggingFaceFetcher(BaseCrawler):
                 if arxiv_id and not paper_url:
                     paper_url = f"https://arxiv.org/abs/{arxiv_id}"
 
-                # 南大检测
+                # LAMDA成员 + NJU精确匹配
                 all_text = f"{title} {abstract} {' '.join(authors)}"
-                is_nju = any(kw.lower() in all_text.lower() for kw in NJU_KEYWORDS)
-
-                # 排除南邮/南理工
-                if any(x in all_text.lower() for x in ["nanjing university of posts", "nanjing university of science"]):
-                    is_nju = False
+                is_nju = check_nju(all_text, authors)
 
                 items.append(self.make_item(
                     url=paper_url,

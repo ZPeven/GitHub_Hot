@@ -5,7 +5,8 @@ GitHub Trending + Topics 抓取器
 import asyncio
 from bs4 import BeautifulSoup
 from crawlers.base import BaseCrawler
-from config import MAX_ITEMS_PER_GITHUB, NJU_KEYWORDS, GITHUB_TOKEN
+from config import MAX_ITEMS_PER_GITHUB, GITHUB_TOKEN
+from processors.lamda_matcher import check_nju
 
 
 class GitHubFetcher(BaseCrawler):
@@ -79,13 +80,9 @@ class GitHubFetcher(BaseCrawler):
 
                 url_full = f"https://github.com{href}"
 
-                # 检测是否与NJU相关
-                is_nju = False
+                # LAMDA成员 + NJU精确匹配
                 all_text = title + " " + summary
-                for kw in NJU_KEYWORDS:
-                    if kw.lower() in all_text.lower():
-                        is_nju = True
-                        break
+                is_nju = check_nju(all_text)
 
                 items.append(self.make_item(
                     url=url_full,
@@ -136,10 +133,7 @@ class GitHubFetcher(BaseCrawler):
 
                 for repo in result["items"]:
                     desc = repo.get("description", "") or ""
-                    is_nju = any(
-                        kw.lower() in (repo.get("full_name", "") + " " + desc).lower()
-                        for kw in NJU_KEYWORDS
-                    )
+                    is_nju = check_nju(repo.get("full_name", "") + " " + desc)
 
                     items.append(self.make_item(
                         url=repo.get("html_url", ""),
