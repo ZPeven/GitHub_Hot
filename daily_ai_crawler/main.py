@@ -100,21 +100,21 @@ class AIHotspotCrawler:
             results = []
             exceptions = []
 
-            # 8路并行抓取
+            # 8路并行抓取 (名称, 协程, 超时秒数)
             tasks = [
-                ("RSS订阅", rss.crawl(rss_sources)),
-                ("arXiv论文", arxiv_fetcher.crawl()),
-                ("GitHub热点", github.crawl()),
-                ("Semantic Scholar", semantic.crawl()),
-                ("HF Daily Papers", hf_papers.crawl()),
-                ("Web抓取", web.crawl(web_sources)),
-                ("南大专线", nju.crawl()),
-                ("搜索发现", discovery.crawl(discovery_queries)),
+                ("RSS订阅", rss.crawl(rss_sources), 40),
+                ("arXiv论文", arxiv_fetcher.crawl(), 40),
+                ("GitHub热点", github.crawl(), 40),
+                ("Semantic Scholar", semantic.crawl(), 45),
+                ("HF Daily Papers", hf_papers.crawl(), 30),
+                ("Web抓取", web.crawl(web_sources), 45),
+                ("南大专线", nju.crawl(), 45),
+                ("搜索发现", discovery.crawl(discovery_queries), 40),
             ]
 
-            async def run_with_name(name, coro):
+            async def run_with_name(name, coro, timeout=40):
                 try:
-                    res = await asyncio.wait_for(coro, timeout=50)
+                    res = await asyncio.wait_for(coro, timeout=timeout)
                     return name, res, None
                 except asyncio.TimeoutError:
                     return name, [], "超时"
@@ -122,7 +122,7 @@ class AIHotspotCrawler:
                     return name, [], str(e)
 
             task_results = await asyncio.gather(
-                *[run_with_name(name, coro) for name, coro in tasks],
+                *[run_with_name(name, coro, timeout) for name, coro, timeout in tasks],
                 return_exceptions=True,
             )
 

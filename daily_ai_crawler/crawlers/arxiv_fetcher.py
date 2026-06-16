@@ -2,6 +2,7 @@
 arXiv API 论文抓取器
 """
 
+import asyncio
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from crawlers.base import BaseCrawler
@@ -13,12 +14,14 @@ class ArxivFetcher(BaseCrawler):
     """arXiv 学术论文抓取 — 按分类 + 南大作者过滤"""
 
     async def crawl(self) -> list[dict]:
-        """抓取 arXiv 最新论文"""
+        """并行抓取 arXiv 多个分类（4个分类同时请求，避免串行超时）"""
         categories = ["cs.AI", "cs.LG", "cs.CL", "cs.MA"]
+        tasks = [self._fetch_category(cat) for cat in categories]
+        cat_results = await asyncio.gather(*tasks, return_exceptions=True)
         results = []
-        for cat in categories:
-            items = await self._fetch_category(cat)
-            results.extend(items)
+        for r in cat_results:
+            if isinstance(r, list):
+                results.extend(r)
         return results
 
     async def _fetch_category(self, cat: str) -> list[dict]:
