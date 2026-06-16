@@ -34,7 +34,7 @@ SEMANTIC_SCHOLAR_URL = "https://api.semanticscholar.org/graph/v1"
 HF_DAILY_PAPERS_URL = "https://huggingface.co/api/daily_papers"
 
 # 翻译并发数 (≤200)
-TRANSLATION_CONCURRENCY = 30
+TRANSLATION_CONCURRENCY = 40
 
 # ============================================================
 # 代理配置 (敏感信息 → config.local.yaml)

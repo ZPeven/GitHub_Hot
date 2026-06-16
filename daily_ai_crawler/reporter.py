@@ -114,14 +114,19 @@ class Reporter:
             lines.append(f"")
             for i, item in enumerate(nju_items, 1):
                 title = item.get("title", "")
+                title_zh = item.get("title_zh", "")
                 url = item.get("url", "#")
                 summary = item.get("summary", "")
+                summary_zh = item.get("summary_zh", "")
                 authors = item.get("authors", [])
-                lines.append(f"### {i}. [{title}]({url})")
+                display_title = f"{title} / {title_zh}" if title_zh else title
+                lines.append(f"### {i}. [{display_title}]({url})")
                 if authors:
                     lines.append(f"**作者**: {', '.join(authors[:8])}")
                 if summary:
-                    lines.append(f"> {summary[:300]}")
+                    if summary_zh and summary_zh != summary:
+                        lines.append(f"> 🇨🇳 {summary_zh[:250]}")
+                    lines.append(f"> {summary[:250]}")
                 lines.append(f"")
 
         # GitHub热门项目
