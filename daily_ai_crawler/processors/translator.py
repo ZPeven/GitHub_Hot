@@ -1,10 +1,9 @@
 """
-DeepSeek API 翻译器 — 非中文内容统一翻译为中文
-仅跳过: 项目名、owner/repo、URL、已有中文的标题
+DeepSeek API 翻译器 — 非中文标题+摘要统一翻译为中文
+仅跳过: GitHub项目名、owner/repo、URL、已有中文的标题和摘要
 """
 
 import asyncio
-import json
 import re
 import aiohttp
 from config import (
@@ -14,7 +13,7 @@ from config import (
 
 
 class Translator:
-    """DeepSeek API 翻译器 — 非中文→中文，单向批量翻译"""
+    """DeepSeek API 翻译器 — 非中文→中文，标题+摘要"""
 
     CHAT_URL = f"{DEEPSEEK_BASE_URL}/chat/completions"
 
@@ -25,7 +24,7 @@ class Translator:
 
     async def _ensure_session(self):
         if self.session is None:
-            timeout = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT)
+            timeout = aiohttp.ClientTimeout(total=60)  # 翻译需更长时间
             self.session = aiohttp.ClientSession(timeout=timeout)
             self._own_session = True
 
@@ -37,78 +36,84 @@ class Translator:
     def enabled(self) -> bool:
         return bool(DEEPSEEK_API_KEY)
 
-    # ── 过滤 ──────────────────────────────────
-
     @staticmethod
     def _has_chinese(text: str) -> bool:
         return bool(re.search(r'[一-鿿]', text))
 
     @staticmethod
-    def _should_translate(item: dict) -> bool:
-        """仅跳过：项目名、owner/repo格式、URL、已有中文的"""
+    def _should_translate_title(item: dict) -> bool:
         title = item.get("title", "")
-
-        # 已有中文 → 不翻译
         if Translator._has_chinese(title):
             return False
-
-        # GitHub 项目名
         if item.get("is_github"):
             return False
-
-        # owner/repo 格式 (如 "PaddlePaddle/Paddle" 或 "owner / repo")
         if re.match(r'^[\w.-]+\s*/\s*[\w.-]+$', title.strip()):
             return False
-
-        # 太短
         if len(title) < 8:
             return False
+        return True
 
+    @staticmethod
+    def _should_translate_summary(item: dict) -> bool:
+        summary = item.get("summary", "")
+        if not summary or len(summary) < 30:
+            return False
+        if Translator._has_chinese(summary):
+            return False
+        if item.get("is_github"):
+            return False
         return True
 
     # ── 批量翻译 ──────────────────────────────
 
     async def translate_all(self, items: list[dict]) -> list[dict]:
-        """批量翻译所有非中文标题 → 中文"""
         if not self.enabled:
             return items
 
         await self._ensure_session()
 
-        to_translate = [it for it in items if self._should_translate(it)]
-        if not to_translate:
+        # 收集所有需翻译的文本 (标题 + 摘要)
+        texts: list[tuple[int, str, str]] = []  # (item_idx, type, text)
+        for i, item in enumerate(items):
+            if self._should_translate_title(item):
+                texts.append((i, "title", item["title"]))
+            if self._should_translate_summary(item):
+                texts.append((i, "summary", item["summary"]))
+
+        if not texts:
             return items
 
-        # 分批（每批最多20条）
-        batch_size = 20
-        batches = [to_translate[i:i + batch_size] for i in range(0, len(to_translate), batch_size)]
+        # 分批（每批最多15条文本，给模型足够时间）
+        batch_size = 15
+        batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
 
-        tasks = [self._translate_batch(batch, i) for i, batch in enumerate(batches)]
+        tasks = [self._translate_batch(items, batch) for batch in batches]
         await asyncio.gather(*tasks, return_exceptions=True)
 
         return items
 
-    async def _translate_batch(self, items: list[dict], batch_idx: int):
-        """翻译一批非中文标题 → 中文"""
+    async def _translate_batch(self, items: list[dict], texts: list[tuple[int, str, str]]):
         async with self._semaphore:
             try:
-                titles = []
-                for i, item in enumerate(items):
-                    titles.append(f"[{i}] {item['title']}")
+                # 构建翻译文本
+                lines = []
+                for idx, typ, text in texts:
+                    prefix = "T" if typ == "title" else "S"
+                    lines.append(f"[{prefix}{idx}] {text}")
 
-                titles_text = "\n".join(titles)
+                text_block = "\n".join(lines)
 
                 system_prompt = (
                     "You are a professional translator. "
-                    "Translate the following titles into Simplified Chinese (简体中文). "
+                    "Translate ALL following text into Simplified Chinese (简体中文). "
                     "Rules:\n"
-                    "- Keep technical terms untranslated (LLM, RAG, RLHF, API, GPU, etc.)\n"
-                    "- Keep proper nouns (company names, model names, person names) in original form\n"
-                    "- Keep the [N] prefix for each line\n"
-                    "- Output ONLY translated lines, no explanations"
+                    "- Keep technical terms (LLM, RAG, RLHF, API, GPU, Python, etc.) in original form\n"
+                    "- Keep proper nouns (company names, model names, person names) untranslated\n"
+                    "- Keep the [TX] / [SX] prefix on each line\n"
+                    "- Output ONLY the translated lines, no explanations, no extra text"
                 )
 
-                user_message = f"Translate these titles to Chinese:\n\n{titles_text}"
+                user_message = f"Translate to Chinese:\n\n{text_block}"
 
                 headers = {
                     "Content-Type": "application/json",
@@ -136,36 +141,26 @@ class Translator:
                     msg = data["choices"][0]["message"]
                     content = (msg.get("content") or msg.get("reasoning_content") or "").strip()
 
-                    # 从reasoning_content中提取翻译结果（如果content为空）
                     if not content or len(content) < 10:
                         reasoning = msg.get("reasoning_content", "")
                         if reasoning:
-                            lines = reasoning.strip().split("\n")
-                            translated_lines = []
-                            for line in reversed(lines):
-                                line = line.strip()
-                                if re.match(r'\[(\d+)\]', line):
-                                    translated_lines.insert(0, line)
-                            if translated_lines:
-                                content = "\n".join(translated_lines)
+                            rlines = reasoning.strip().split("\n")
+                            out = [l for l in reversed(rlines) if re.match(r'\[[TS]\d+\]', l.strip())]
+                            content = "\n".join(reversed(out))
 
-                    # 解析翻译结果
-                    translations = {}
+                    # 解析
                     for line in content.split("\n"):
                         line = line.strip()
-                        match = re.match(r'\[(\d+)\]\s*(.+)', line)
-                        if match:
-                            idx = int(match.group(1))
-                            text = match.group(2).strip().strip('"\'').strip()
-                            if text:
-                                translations[idx] = text
-
-                    # 赋值
-                    for i, item in enumerate(items):
-                        if i in translations:
-                            zh = translations[i]
-                            if zh and zh != item["title"]:
-                                item["title_zh"] = zh
+                        m = re.match(r'\[([TS])(\d+)\]\s*(.+)', line)
+                        if m:
+                            prefix = m.group(1)
+                            idx = int(m.group(2))
+                            zh_text = m.group(3).strip().strip('"\'').strip()
+                            if zh_text and idx < len(items):
+                                orig = items[idx].get("title" if prefix == "T" else "summary", "")
+                                if zh_text != orig:
+                                    key = "title_zh" if prefix == "T" else "summary_zh"
+                                    items[idx][key] = zh_text
 
             except Exception:
                 pass

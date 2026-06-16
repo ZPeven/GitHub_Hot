@@ -92,12 +92,15 @@ class Reporter:
                 title = item.get("title", "Untitled")
                 title_zh = item.get("title_zh", "")
                 summary = item.get("summary", "")
+                summary_zh = item.get("summary_zh", "")
                 if summary:
                     if title_zh and title_zh != title:
                         lines.append(f"**{i}. {title}**")
                         lines.append(f"   🇨🇳 {title_zh}")
                     else:
                         lines.append(f"**{i}. {title}**")
+                    if summary_zh and summary_zh != summary:
+                        lines.append(f"> 🇨🇳 {summary_zh[:200]}")
                     lines.append(f"> {summary[:200]}")
                     lines.append(f"")
 
