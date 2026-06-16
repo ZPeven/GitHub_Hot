@@ -55,7 +55,7 @@ github_token: "ghp_xxxxxxxxxxxx"
 
 # 代理配置（仅中国大陆用户需要）
 # 国外用户保持 use_proxy: false 即可
-proxy: "http://127.0.0.1:10101"  # 你的代理地址
+proxy: "http://127.0.0.1:你的端口"   # 你的代理地址
 use_proxy: true                    # 国外用户设为 false
 ```
 

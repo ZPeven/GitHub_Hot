@@ -164,7 +164,7 @@ discovery_queries:
     query: "AI Agent 最新进展"
     max_results: 8
   - engine: bing_news
-    query: "大模型 突破 2025"
+    query: "大模型 突破 2026"
     max_results: 8
   - engine: bing_news
     query: "强化学习 应用"
