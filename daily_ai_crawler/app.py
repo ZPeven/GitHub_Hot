@@ -39,6 +39,24 @@ config.REPORTS_DIR = _user_path("reports")
 config.DB_FILE = _user_path("crawler.db")
 config.SOURCES_FILE = _data_path("sources.yaml")
 
+# 重新从用户目录加载 config.local.yaml（exe内嵌config.py找不到exe旁的文件）
+_local_cfg = _user_path("config.local.yaml")
+if os.path.exists(_local_cfg):
+    import yaml as _yaml
+    with open(_local_cfg, "r", encoding="utf-8") as _f:
+        _lc = _yaml.safe_load(_f) or {}
+    config.GITHUB_TOKEN = _lc.get("github_token", "")
+    config.DEEPSEEK_API_KEY = _lc.get("deepseek_api_key", "")
+    proxy_url = _lc.get("proxy", "")
+    use_p = _lc.get("use_proxy", False)
+    if proxy_url and use_p:
+        config.PROXY_URL = proxy_url
+        config.USE_PROXY = True
+        config.PROXIES = {"http": proxy_url, "https": proxy_url}
+    else:
+        config.USE_PROXY = False
+        config.PROXIES = None
+
 # lamda_members: 内嵌只读文件
 import processors.lamda_matcher as lm
 lm._MEMBERS_FILE = _data_path("lamda_members.json")
