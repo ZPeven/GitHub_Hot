@@ -63,7 +63,8 @@ class Reporter:
 
             name = self.DOMAIN_NAMES.get(domain, domain)
             lines.append(f"")
-            lines.append(f"## {name} {{#{domain}}}")
+            lines.append(f'<a id="{domain}"></a>')
+            lines.append(f"## {name}")
             lines.append(f"")
             lines.append(f"| # | 标题 | 来源 | 评分 |")
             lines.append(f"|---|------|------|------|")
@@ -91,14 +92,15 @@ class Reporter:
             for i, item in enumerate(top_items, 1):
                 title = item.get("title", "Untitled")
                 title_zh = item.get("title_zh", "")
+                url = item.get("url", "#")
                 summary = item.get("summary", "")
                 summary_zh = item.get("summary_zh", "")
                 if summary:
                     if title_zh and title_zh != title:
-                        lines.append(f"**{i}. {title}**")
+                        lines.append(f"**{i}. [{title}]({url})**")
                         lines.append(f"   🇨🇳 {title_zh}")
                     else:
-                        lines.append(f"**{i}. {title}**")
+                        lines.append(f"**{i}. [{title}]({url})**")
                     if summary_zh and summary_zh != summary:
                         lines.append(f"> 🇨🇳 {summary_zh[:200]}")
                     lines.append(f"> {summary[:200]}")
@@ -108,7 +110,8 @@ class Reporter:
         nju_items = grouped.get("nju", [])
         if nju_items:
             lines.append(f"")
-            lines.append(f"## 🏫 南京大学AI成果专区 {{#nju}}")
+            lines.append(f'<a id="nju"></a>')
+            lines.append(f"## 🏫 南京大学AI成果专区")
             lines.append(f"")
             lines.append(f"> 以下是最新收录的南京大学相关AI研究成果")
             lines.append(f"")
