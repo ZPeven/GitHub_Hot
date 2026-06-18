@@ -233,6 +233,11 @@ def _mask(s: str) -> str:
     return s[:4] + "***" + s[-4:]
 
 
+@app.route("/api/shutdown", methods=["POST"])
+def shutdown():
+    os._exit(0)
+
+
 # ═══════════════════════════════════════════
 # 爬虫执行
 # ═══════════════════════════════════════════
@@ -1007,6 +1012,11 @@ async function saveSettings() {
     setTimeout(() => openSettings(), 800);
   }
 })();
+
+// 关闭页面时通知后台退出
+window.addEventListener("beforeunload", () => {
+  navigator.sendBeacon("/api/shutdown");
+});
 </script>
 </body>
 </html>

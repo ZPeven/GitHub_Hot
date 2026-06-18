@@ -731,6 +731,11 @@ async function saveSettings() {
     setTimeout(() => openSettings(), 800);
   }
 })();
+
+// 关闭页面时通知后台退出
+window.addEventListener("beforeunload", () => {
+  navigator.sendBeacon("/api/shutdown");
+});
 </script>
 </body>
 </html>
