@@ -274,23 +274,31 @@ def _run_crawl():
             pass
 
     try:
+        _crawl_status["log"].append("启动中...")
         import main as main_module
         crawler = main_module.AIHotspotCrawler(verbose=True)
-        # 临时重定向 stdout 来捕获日志
         old_stdout = sys.stdout
         sys.stdout = _LogCapture()
         try:
-            asyncio.run(crawler.run())
+            # 超时保护: 最多跑200秒
+            asyncio.run(asyncio.wait_for(crawler.run(), timeout=200))
             _crawl_status["success"] = True
+        except asyncio.TimeoutError:
+            _crawl_status["success"] = False
+            _crawl_status["log"].append("⏱️ 爬取超时 (200s)")
         finally:
             sys.stdout = old_stdout
-            crawler.db.close()
+            try:
+                crawler.db.close()
+            except Exception:
+                pass
     except Exception as e:
         _crawl_status["success"] = False
         import traceback
-        _crawl_status["log"].append(f"❌ {e}")
-        _crawl_status["log"].append(traceback.format_exc()[-200:])
-    _crawl_status["running"] = False
+        _crawl_status["log"].append(f"❌ {type(e).__name__}: {e}")
+        _crawl_status["log"].append(traceback.format_exc()[-300:])
+    finally:
+        _crawl_status["running"] = False
 
 
 # ═══════════════════════════════════════════
