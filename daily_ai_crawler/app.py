@@ -201,6 +201,8 @@ def save_config():
     for key in ["github_token", "deepseek_api_key", "proxy"]:
         val = data.get(key)
         if isinstance(val, str) and val and "***" not in val:
+            if key == "proxy" and val.isdigit():
+                val = f"http://127.0.0.1:{val}"
             existing[key] = val
     # use_proxy 是布尔值，单独处理
     if "use_proxy" in data:
@@ -819,8 +821,8 @@ body {
       <div class="hint"><a href="https://platform.deepseek.com" target="_blank">获取 Key →</a> 不填则报告不翻译</div>
     </div>
     <div class="form-group">
-      <label>HTTP 代理地址 <span style="color:var(--white-faint)">(中国大陆用户)</span></label>
-      <input type="text" id="cfg-proxy" placeholder="http://127.0.0.1:端口 或留空直连">
+      <label>代理端口 <span style="color:var(--white-faint)">(中国大陆用户，自动补全 http://127.0.0.1:)</span></label>
+      <input type="text" id="cfg-proxy" placeholder="如 10101，留空直连">
     </div>
     <div class="checkbox-row">
       <input type="checkbox" id="cfg-use-proxy">
@@ -957,7 +959,10 @@ async function openSettings() {
   ghEl.value = ""; dsEl.value = "";
   ghEl.placeholder = cfg.has_github_token ? "已配置 · 留空保持不变" : "ghp_... 留空使用匿名限额";
   dsEl.placeholder = cfg.has_deepseek_key ? "已配置 · 留空保持不变" : "sk-... 留空则跳过翻译";
-  document.getElementById("cfg-proxy").value = cfg.proxy||"";
+  // 代理只显示端口号，去掉 http://127.0.0.1: 前缀
+  let proxyVal = cfg.proxy||"";
+  proxyVal = proxyVal.replace(/^https?:\/\/127\.0\.0\.1:/, "").replace(/^https?:\/\/localhost:/, "");
+  document.getElementById("cfg-proxy").value = /^\d+$/.test(proxyVal) ? proxyVal : "";
   document.getElementById("cfg-use-proxy").checked = cfg.use_proxy||false;
   if (!cfg.exists) {
     document.getElementById("settings-msg").textContent = "首次使用，请配置后保存";
@@ -968,10 +973,15 @@ function closeSettings() {
   document.getElementById("settings-overlay").classList.remove("show");
 }
 async function saveSettings() {
+  let proxyVal = document.getElementById("cfg-proxy").value.trim();
+  // 纯数字 → 自动补全; 已是完整URL → 保留; 空 → 不设置
+  if (/^\d+$/.test(proxyVal)) {
+    proxyVal = "http://127.0.0.1:" + proxyVal;
+  }
   const payload = {
     github_token: document.getElementById("cfg-github").value.trim(),
     deepseek_api_key: document.getElementById("cfg-deepseek").value.trim(),
-    proxy: document.getElementById("cfg-proxy").value.trim(),
+    proxy: proxyVal,
     use_proxy: document.getElementById("cfg-use-proxy").checked,
   };
   const res = await fetch("/api/config", {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
