@@ -128,21 +128,15 @@ def create_report():
 
 @app.route("/api/reports/<date_str>", methods=["DELETE"])
 def delete_report(date_str):
-    """删除指定报告"""
-    filename = request.args.get("filename", f"{date_str}_AI_Hotspot_Report.md")
-    # 支持精确文件名匹配
-    if "/" not in filename and "\\" not in filename:
-        filepath = os.path.join(REPORTS_DIR, filename)
-        if os.path.exists(filepath):
-            os.remove(filepath)
-            return jsonify({"ok": True})
-    # 模糊匹配（兼容旧接口）
-    matches = glob.glob(os.path.join(REPORTS_DIR, f"{date_str}*.md"))
-    if matches:
-        for m in matches:
-            os.remove(m)
-        return jsonify({"ok": True})
-    return jsonify({"error": "Not found"}), 404
+    """删除指定报告（仅精确文件名，防止误删）"""
+    filename = request.args.get("filename", "")
+    if not filename or "/" in filename or "\\" in filename:
+        return jsonify({"error": "Invalid filename"}), 400
+    filepath = os.path.join(REPORTS_DIR, filename)
+    if not os.path.exists(filepath):
+        return jsonify({"error": f"File not found: {filename}"}), 404
+    os.remove(filepath)
+    return jsonify({"ok": True})
 
 
 @app.route("/api/reports/<date_str>")
@@ -171,6 +165,40 @@ def save_report(date_str):
     filepath = os.path.join(REPORTS_DIR, filename)
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
+    return jsonify({"ok": True})
+
+
+# ── 基于文件名的 report API (用于自定义文档) ──
+
+@app.route("/api/reports/file/<path:filename>")
+def get_report_by_file(filename):
+    """通过文件名获取报告（支持自定义文档）"""
+    filepath = os.path.join(REPORTS_DIR, os.path.basename(filename))
+    if not os.path.exists(filepath):
+        return jsonify({"error": "Not found"}), 404
+    with open(filepath, "r", encoding="utf-8") as f:
+        content = f.read()
+    return jsonify({"content": content, "filename": os.path.basename(filepath)})
+
+
+@app.route("/api/reports/file/<path:filename>", methods=["PUT"])
+def save_report_by_file(filename):
+    """通过文件名保存报告"""
+    data = request.get_json()
+    content = data.get("content", "")
+    filepath = os.path.join(REPORTS_DIR, os.path.basename(filename))
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(content)
+    return jsonify({"ok": True})
+
+
+@app.route("/api/reports/file/<path:filename>", methods=["DELETE"])
+def delete_report_by_file(filename):
+    """通过文件名删除报告"""
+    filepath = os.path.join(REPORTS_DIR, os.path.basename(filename))
+    if not os.path.exists(filepath):
+        return jsonify({"error": "Not found"}), 404
+    os.remove(filepath)
     return jsonify({"ok": True})
 
 
@@ -949,7 +977,7 @@ body {
 })();
 
 // ── State ──
-let currentDate=null, currentFilename=null, originalContent="", pollTimer=null;
+let currentFilename=null, originalContent="", pollTimer=null;
 
 marked.setOptions({breaks:true,gfm:true});
 loadReports();
@@ -962,14 +990,14 @@ async function loadReports(){
     list.innerHTML='<div class="empty-state"><div class="icon">&#x1F6F0;</div><p>NO SIGNALS DETECTED</p><p style="font-size:10px;color:var(--white-dim)">INITIATE TRANSMISSION TO BEGIN</p></div>';
     return;
   }
-  list.innerHTML = reports.map(r=>'<div class="report-item'+(currentDate===r.date?' active':'')+'" onclick="openReport(\''+r.date+'\')"><div class="r-freq"><span class="pulse"></span>FREQ.'+r.date.replace(/-/g,'.')+'</div><div class="r-title">'+r.title+'</div></div>').join('');
+  list.innerHTML = reports.map(r=>'<div class="report-item'+(currentFilename===r.filename?' active':'')+'" onclick="openReport(\''+encodeURIComponent(r.filename)+'\')"><div class="r-freq"><span class="pulse"></span>'+r.date.replace(/-/g,'.')+'</div><div class="r-title">'+r.title+'</div></div>').join('');
 }
 
-async function openReport(date){
-  const res = await fetch("/api/reports/"+date);
+async function openReport(filename){
+  const res = await fetch("/api/reports/file/"+encodeURIComponent(filename));
   const data = await res.json();
   if(data.error) return;
-  currentDate = date; currentFilename = data.filename; originalContent = data.content;
+  currentFilename = data.filename; originalContent = data.content;
   document.getElementById("editor").value = data.content;
   document.getElementById("current-title").textContent = '◆ '+data.filename;
   renderPreview(data.content);
@@ -987,9 +1015,9 @@ function setViewMode(mode){
 }
 
 async function saveReport(){
-  if(!currentDate) return;
+  if(!currentFilename) return;
   const content = document.getElementById("editor").value;
-  await fetch("/api/reports/"+currentDate,{
+  await fetch("/api/reports/file/"+encodeURIComponent(currentFilename),{
     method:"PUT",headers:{"Content-Type":"application/json"},
     body:JSON.stringify({content,filename:currentFilename})
   });
@@ -1017,8 +1045,11 @@ async function pollCrawlStatus(){
     btn.disabled=false; btn.textContent="▶ TRANSMIT";
     st.textContent = s.success ? "RECEIVED" : "TRANSMISSION FAILED";
     loadReports();
-    const first = document.querySelector("#report-list .report-item");
-    if(first) first.click();
+    setTimeout(async () => {
+      const res = await fetch("/api/reports");
+      const reports = await res.json();
+      if (reports.length > 0) openReport(reports[0].filename);
+    }, 500);
   }
 }
 function showLogOverlay(){
@@ -1102,17 +1133,17 @@ async function createReport() {
   const data = await res.json();
   if (data.ok) {
     await loadReports();
-    openReport(data.date);
+    openReport(data.filename);
     const st=document.getElementById("status-text");
     st.textContent = "CREATED "+data.filename;
     setTimeout(()=>{st.textContent="STANDBY";},2000);
   }
 }
 async function deleteReport() {
-  if (!currentDate || !currentFilename) return;
+  if (!currentFilename) return;
   if (!confirm("确认删除 " + currentFilename + "？\n此操作不可撤销。")) return;
-  await fetch("/api/reports/"+currentDate+"?filename="+encodeURIComponent(currentFilename), {method:"DELETE"});
-  currentDate = null; currentFilename = null;
+  await fetch("/api/reports/file/"+encodeURIComponent(currentFilename), {method:"DELETE"});
+  currentFilename = null;
   document.getElementById("editor").value = "";
   document.getElementById("preview").innerHTML = '<div class="welcome-hero"><h1>AI OBSERVATORY</h1><p class="tagline">Deep Space Signal Intelligence</p></div>';
   document.getElementById("current-title").textContent = "DEEP SPACE OBSERVATORY";
