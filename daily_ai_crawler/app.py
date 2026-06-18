@@ -104,6 +104,47 @@ def list_reports():
     return jsonify(reports)
 
 
+@app.route("/api/reports", methods=["POST"])
+def create_report():
+    """新建空白报告"""
+    data = request.get_json() or {}
+    title = data.get("title", "新报告")
+    today = datetime.date.today().isoformat()
+    # 生成唯一文件名
+    existing = set(os.listdir(REPORTS_DIR))
+    idx = 1
+    while True:
+        date_str = today if idx == 1 else f"{today}_{idx}"
+        filename = f"{date_str}_Custom.md"
+        if filename not in existing:
+            break
+        idx += 1
+    filepath = os.path.join(REPORTS_DIR, filename)
+    template = f"# {title}\n\n> 创建于 {datetime.datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n## 摘要\n\n在此编写内容...\n\n---\n\n*自定义报告*\n"
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(template)
+    return jsonify({"ok": True, "date": date_str, "filename": filename})
+
+
+@app.route("/api/reports/<date_str>", methods=["DELETE"])
+def delete_report(date_str):
+    """删除指定报告"""
+    filename = request.args.get("filename", f"{date_str}_AI_Hotspot_Report.md")
+    # 支持精确文件名匹配
+    if "/" not in filename and "\\" not in filename:
+        filepath = os.path.join(REPORTS_DIR, filename)
+        if os.path.exists(filepath):
+            os.remove(filepath)
+            return jsonify({"ok": True})
+    # 模糊匹配（兼容旧接口）
+    matches = glob.glob(os.path.join(REPORTS_DIR, f"{date_str}*.md"))
+    if matches:
+        for m in matches:
+            os.remove(m)
+        return jsonify({"ok": True})
+    return jsonify({"error": "Not found"}), 404
+
+
 @app.route("/api/reports/<date_str>")
 def get_report(date_str):
     """获取某日报告内容"""
@@ -493,6 +534,22 @@ body {
   font-size:10px; color:var(--white-dim); text-align:center;
   margin-top:8px; letter-spacing:2px;
 }
+.sidebar-footer .row-btns {
+  display:flex; gap:8px;
+}
+.sidebar-footer .row-btns button {
+  flex:1; padding:8px 0; border:1px solid var(--white-faint);
+  border-radius:var(--radius); background:transparent;
+  font-family:inherit; font-size:10px; letter-spacing:1px;
+  cursor:pointer; transition:all var(--transition); text-transform:uppercase;
+  color:var(--white-dim);
+}
+.sidebar-footer .row-btns button:hover {
+  border-color:var(--cyan); color:var(--cyan);
+}
+.sidebar-footer .row-btns .btn-del:hover {
+  border-color:var(--danger,#ff1744); color:var(--danger,#ff1744);
+}
 
 /* ── Main ───────────────────────────── */
 #main {
@@ -792,6 +849,10 @@ body {
   <div id="report-list"></div>
   <div class="sidebar-footer">
     <button id="btn-crawl" onclick="startCrawl()">▶ TRANSMIT</button>
+    <div class="row-btns">
+      <button onclick="createReport()" title="新建空白报告">+ NEW</button>
+      <button class="btn-del" onclick="deleteReport()" title="删除当前报告">DEL</button>
+    </div>
     <p class="status-text" id="status-text">STANDBY</p>
   </div>
 </div>
@@ -1028,6 +1089,37 @@ async function saveSettings() {
     msg.textContent = "SAVE FAILED";
     msg.className = "status-msg err";
   }
+}
+
+// ── New / Delete Reports ──
+async function createReport() {
+  const title = prompt("报告标题:", "自定义笔记");
+  if (!title) return;
+  const res = await fetch("/api/reports", {
+    method:"POST", headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({title})
+  });
+  const data = await res.json();
+  if (data.ok) {
+    await loadReports();
+    openReport(data.date);
+    const st=document.getElementById("status-text");
+    st.textContent = "CREATED "+data.filename;
+    setTimeout(()=>{st.textContent="STANDBY";},2000);
+  }
+}
+async function deleteReport() {
+  if (!currentDate || !currentFilename) return;
+  if (!confirm("确认删除 " + currentFilename + "？\n此操作不可撤销。")) return;
+  await fetch("/api/reports/"+currentDate+"?filename="+encodeURIComponent(currentFilename), {method:"DELETE"});
+  currentDate = null; currentFilename = null;
+  document.getElementById("editor").value = "";
+  document.getElementById("preview").innerHTML = '<div class="welcome-hero"><h1>AI OBSERVATORY</h1><p class="tagline">Deep Space Signal Intelligence</p></div>';
+  document.getElementById("current-title").textContent = "DEEP SPACE OBSERVATORY";
+  loadReports();
+  const st=document.getElementById("status-text");
+  st.textContent = "DELETED";
+  setTimeout(()=>{st.textContent="STANDBY";},2000);
 }
 
 // 首次启动：无配置时自动弹窗
