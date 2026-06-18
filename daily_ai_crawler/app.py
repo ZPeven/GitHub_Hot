@@ -149,6 +149,78 @@ def stats():
 
 
 # ═══════════════════════════════════════════
+# 配置 API
+# ═══════════════════════════════════════════
+
+CONFIG_PATH = os.path.join(_EXE_DIR, "config.local.yaml")
+CONFIG_EXAMPLE = os.path.join(_EXE_DIR, "config.local.yaml.example")
+
+@app.route("/api/config")
+def get_config():
+    """读取当前配置（脱敏）"""
+    cfg = {"github_token": "", "deepseek_api_key": "", "proxy": "", "use_proxy": False, "exists": False}
+    if os.path.exists(CONFIG_PATH):
+        import yaml as _yaml
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                data = _yaml.safe_load(f) or {}
+            cfg["github_token"] = _mask(data.get("github_token", ""))
+            cfg["deepseek_api_key"] = _mask(data.get("deepseek_api_key", ""))
+            cfg["proxy"] = data.get("proxy", "")
+            cfg["use_proxy"] = data.get("use_proxy", False)
+            cfg["exists"] = True
+        except Exception:
+            pass
+    return jsonify(cfg)
+
+
+@app.route("/api/config", methods=["PUT"])
+def save_config():
+    """保存配置（不覆盖已脱敏的token）"""
+    data = request.get_json()
+    existing = {}
+    if os.path.exists(CONFIG_PATH):
+        import yaml as _yaml
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                existing = _yaml.safe_load(f) or {}
+        except Exception:
+            pass
+
+    # 仅更新非脱敏字段
+    for key in ["github_token", "deepseek_api_key", "proxy", "use_proxy"]:
+        val = data.get(key)
+        if val is not None and val != "" and not val.startswith("***"):
+            existing[key] = val
+    if "use_proxy" in data:
+        existing["use_proxy"] = bool(data["use_proxy"])
+
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        f.write("# 本地配置 (通过应用界面生成)\n")
+        for key in ["github_token", "deepseek_api_key", "proxy", "use_proxy"]:
+            f.write(f"{key}: {json.dumps(existing.get(key, ''), ensure_ascii=False)}\n")
+
+    # 更新运行时配置
+    config.GITHUB_TOKEN = existing.get("github_token", "")
+    config.DEEPSEEK_API_KEY = existing.get("deepseek_api_key", "")
+    if existing.get("proxy") and existing.get("use_proxy"):
+        config.PROXY_URL = existing["proxy"]
+        config.USE_PROXY = True
+        config.PROXIES = {"http": config.PROXY_URL, "https": config.PROXY_URL}
+    else:
+        config.USE_PROXY = False
+        config.PROXIES = None
+
+    return jsonify({"ok": True})
+
+
+def _mask(s: str) -> str:
+    if not s or len(s) < 8:
+        return s or ""
+    return s[:4] + "***" + s[-4:]
+
+
+# ═══════════════════════════════════════════
 # 爬虫执行
 # ═══════════════════════════════════════════
 
@@ -404,6 +476,85 @@ body {
   background:var(--cyan-glow);
   box-shadow:0 0 20px var(--cyan-glow);
 }
+.btn-settings {
+  padding:8px 12px; border:1px solid var(--white-faint);
+  border-radius:var(--radius); background:transparent;
+  color:var(--white-dim); cursor:pointer;
+  font-size:16px; transition:all var(--transition);
+  line-height:1;
+}
+.btn-settings:hover { border-color:var(--amber); color:var(--amber); }
+
+/* ── Settings Modal ──────────────────── */
+.modal-overlay {
+  position:fixed; inset:0; z-index:200;
+  background:rgba(0,0,8,.85);
+  backdrop-filter:blur(8px);
+  display:none; align-items:center; justify-content:center;
+}
+.modal-overlay.show { display:flex; }
+.modal {
+  width:520px; max-height:90vh; overflow-y:auto;
+  background:var(--glass);
+  backdrop-filter:blur(24px);
+  border:1px solid var(--glass-border);
+  border-radius:4px;
+  padding:36px;
+  box-shadow:0 0 80px rgba(0,0,0,.6), 0 0 20px rgba(0,229,255,.1);
+  animation:transmissionIn .35s cubic-bezier(.16,1,.3,1);
+}
+.modal h2 {
+  font-size:20px; font-weight:700; letter-spacing:3px;
+  color:var(--cyan); margin-bottom:28px; text-transform:uppercase;
+}
+.modal .form-group {
+  margin-bottom:20px;
+}
+.modal label {
+  display:block; font-size:10px; letter-spacing:2px;
+  color:var(--white-dim); margin-bottom:6px; text-transform:uppercase;
+}
+.modal input[type="text"], .modal input[type="password"] {
+  width:100%; padding:10px 14px;
+  border:1px solid var(--white-faint); border-radius:var(--radius);
+  background:rgba(0,0,0,.3); color:var(--white);
+  font-family:'Space Mono', monospace; font-size:12px;
+  outline:none; letter-spacing:.5px;
+  transition:border-color var(--transition);
+}
+.modal input:focus { border-color:var(--cyan); }
+.modal .hint {
+  font-size:10px; color:var(--white-dim); margin-top:4px; letter-spacing:.5px;
+}
+.modal .hint a { color:var(--cyan-dim); }
+.modal .checkbox-row {
+  display:flex; align-items:center; gap:10px; margin:20px 0;
+}
+.modal .checkbox-row input[type="checkbox"] {
+  width:16px; height:16px; accent-color:var(--cyan);
+}
+.modal .btn-row {
+  display:flex; gap:12px; margin-top:28px;
+}
+.modal .btn-row button {
+  flex:1; padding:12px; border:1px solid var(--white-faint);
+  border-radius:var(--radius); background:transparent;
+  font-family:inherit; font-size:12px; letter-spacing:2px;
+  cursor:pointer; transition:all var(--transition); text-transform:uppercase;
+}
+.modal .btn-row .btn-primary {
+  border-color:var(--cyan); color:var(--cyan); font-weight:700;
+}
+.modal .btn-row .btn-primary:hover {
+  background:var(--cyan-glow); box-shadow:0 0 20px var(--cyan-glow);
+}
+.modal .btn-row .btn-secondary { color:var(--white-dim); }
+.modal .btn-row .btn-secondary:hover { border-color:var(--white-dim); color:var(--white); }
+.modal .status-msg {
+  font-size:10px; letter-spacing:1px; margin-top:12px; text-align:center;
+}
+.modal .status-msg.ok { color:#00c853; }
+.modal .status-msg.err { color:#ff1744; }
 
 #editor-area { flex:1; display:flex; overflow:hidden; }
 #editor {
@@ -599,6 +750,7 @@ body {
       <option value="preview">DECODED</option>
     </select>
     <button class="btn-save" onclick="saveReport()">SAVE</button>
+    <button class="btn-settings" onclick="openSettings()" title="设置">⚙</button>
   </div>
   <div id="editor-area">
     <textarea id="editor" placeholder="SELECT A REPORT FROM THE LEFT PANEL TO BEGIN DECODING..."
@@ -624,6 +776,39 @@ body {
     <button class="btn-close" onclick="hideLogOverlay()" title="CLOSE CHANNEL">×</button>
   </div>
   <div class="log-body" id="log-body"></div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-overlay">
+  <div class="modal">
+    <h2>GROUND STATION CONFIG</h2>
+    <p style="font-size:10px;color:var(--white-dim);letter-spacing:1px;margin:-20px 0 24px;text-transform:uppercase">
+      所有配置保存在 config.local.yaml · 留空则使用默认值
+    </p>
+    <div class="form-group">
+      <label>GitHub Token <span style="color:var(--white-faint)">(可选，提升API速率)</span></label>
+      <input type="password" id="cfg-github" placeholder="ghp_... 留空使用匿名限额 (60次/小时)">
+      <div class="hint"><a href="https://github.com/settings/tokens" target="_blank">获取 Token →</a> 勾选 public_repo 即可</div>
+    </div>
+    <div class="form-group">
+      <label>DeepSeek API Key <span style="color:var(--white-faint)">(可选，用于双语翻译)</span></label>
+      <input type="password" id="cfg-deepseek" placeholder="sk-... 留空则跳过翻译">
+      <div class="hint"><a href="https://platform.deepseek.com" target="_blank">获取 Key →</a> 不填则报告不翻译</div>
+    </div>
+    <div class="form-group">
+      <label>HTTP 代理地址 <span style="color:var(--white-faint)">(中国大陆用户)</span></label>
+      <input type="text" id="cfg-proxy" placeholder="http://127.0.0.1:端口 或留空直连">
+    </div>
+    <div class="checkbox-row">
+      <input type="checkbox" id="cfg-use-proxy">
+      <label style="margin:0;display:inline">启用代理</label>
+    </div>
+     <div class="btn-row">
+      <button class="btn-primary" onclick="saveSettings()">SAVE & APPLY</button>
+      <button class="btn-secondary" onclick="closeSettings()">CANCEL</button>
+    </div>
+    <div class="status-msg" id="settings-msg"></div>
+  </div>
 </div>
 
 <script>
@@ -737,6 +922,56 @@ function updateLogBody(lines){
   }).join("");
   el.scrollTop = el.scrollHeight;
 }
+
+// ── Settings ──
+async function openSettings() {
+  document.getElementById("settings-overlay").classList.add("show");
+  document.getElementById("settings-msg").textContent = "";
+  const res = await fetch("/api/config");
+  const cfg = await res.json();
+  document.getElementById("cfg-github").value = cfg.github_token||"";
+  document.getElementById("cfg-deepseek").value = cfg.deepseek_api_key||"";
+  document.getElementById("cfg-proxy").value = cfg.proxy||"";
+  document.getElementById("cfg-use-proxy").checked = cfg.use_proxy||false;
+  // 首次使用引导
+  if (!cfg.exists) {
+    document.getElementById("settings-msg").textContent = "首次使用，请配置后保存";
+    document.getElementById("settings-msg").className = "status-msg err";
+  }
+}
+function closeSettings() {
+  document.getElementById("settings-overlay").classList.remove("show");
+}
+async function saveSettings() {
+  const payload = {
+    github_token: document.getElementById("cfg-github").value.trim(),
+    deepseek_api_key: document.getElementById("cfg-deepseek").value.trim(),
+    proxy: document.getElementById("cfg-proxy").value.trim(),
+    use_proxy: document.getElementById("cfg-use-proxy").checked,
+  };
+  const res = await fetch("/api/config", {method:"PUT", headers:{"Content-Type":"application/json"}, body:JSON.stringify(payload)});
+  const data = await res.json();
+  const msg = document.getElementById("settings-msg");
+  if (data.ok) {
+    msg.textContent = "CONFIG SAVED · 配置已保存，下次运行时生效";
+    msg.className = "status-msg ok";
+    const st = document.getElementById("status-text");
+    st.textContent = "CONFIG UPDATED";
+    setTimeout(()=>{ st.textContent="STANDBY"; closeSettings(); }, 1500);
+  } else {
+    msg.textContent = "SAVE FAILED";
+    msg.className = "status-msg err";
+  }
+}
+
+// 首次启动：无配置时自动弹窗
+(async function(){
+  const res = await fetch("/api/config");
+  const cfg = await res.json();
+  if (!cfg.exists) {
+    setTimeout(() => openSettings(), 800);
+  }
+})();
 </script>
 </body>
 </html>
