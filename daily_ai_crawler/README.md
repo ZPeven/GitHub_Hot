@@ -22,70 +22,65 @@
 
 ## 快速开始
 
-### 1. 环境准备
+### 方式一：桌面应用（推荐）
+
+```bash
+# 1. 下载 Release 中的 AI热点日报.exe
+# 2. 双击运行 → 自动打开浏览器 → Deep Space Observatory 界面
+# 3. 首次使用自动弹出设置面板，填写 Token/代理（也可跳过）
+# 4. 点 TRANSMIT 开始抓取
+```
+
+| 操作 | 说明 |
+|------|------|
+| 🖱️ 双击 exe | 启动桌面应用，浏览器自动打开 `http://127.0.0.1:5000` |
+| ⚙ 齿轮按钮 | 随时修改 API Token / 代理 / 翻译设置 |
+| ▶ TRANSMIT | 一键抓取最新 AI 热点 |
+| 📄 左侧列表 | 点击切换历史报告 |
+| ✏️ 右侧编辑 | Markdown 源码 + 实时渲染预览，Ctrl+S 保存 |
+
+### 方式二：VSCode 开发环境
+
+**1. 环境准备**
 
 项目使用 [mamba](https://mamba.readthedocs.io/)（兼容 conda）管理 Python 环境。
 
 ```bash
-# 克隆项目
-git clone <your-repo-url>
+git clone https://github.com/ZPeven/GitHub_Hot.git
 cd daily_ai_crawler
-
-# 创建虚拟环境（只需一次）
 mamba env create -f environment.yml
-
-# 激活环境
-mamba activate ai_crawler
 ```
 
-### 2. 配置（必须）
+**2. 配置文件**
 
 ```bash
-# 从模板创建本地配置
 cp config.local.yaml.example config.local.yaml
+# 编辑填入 Token 和代理（也可跳过，在应用界面中配置）
 ```
 
-编辑 `config.local.yaml`：
+**3. 启动方式**
 
-```yaml
-# GitHub Token (可选但推荐，提升API速率 60→5000次/小时)
-# 获取: https://github.com/settings/tokens → Generate new token (classic)
-# 权限: 只勾选 public_repo 即可
-github_token: "ghp_xxxxxxxxxxxx"
+| 场景 | 命令 | 说明 |
+|------|------|------|
+| 🖥️ **桌面应用** | `python app.py` | 启动 Web 界面，浏览器自动打开 |
+| 📡 **命令行抓取** | `python main.py -v` | 纯终端模式，生成报告到 `reports/` |
+| 📊 **查看统计** | `python main.py --stats` | 显示数据库统计 |
+| 🔄 **重生成报告** | `python main.py --report-only` | 用已有数据重新生成报告 |
+| 🌍 **不走代理** | `python main.py --no-proxy` | 临时关闭代理 |
 
-# DeepSeek API Key (可选，用于新闻标题中英双语翻译)
-# 获取: https://platform.deepseek.com → API Keys
-# 不配置则报告仅显示原标题
-deepseek_api_key: "sk-xxxxxxxxxxxx"
+> **国外用户**: 无需代理。`use_proxy: false` 即可，所有 API 可直连。
 
-# 代理配置（仅中国大陆用户需要）
-# 国外用户保持 use_proxy: false 即可
-proxy: "http://127.0.0.1:你的端口"   # 你的代理地址
-use_proxy: true                    # 国外用户设为 false
+**4. VSCode 推荐配置**
+
+在 VSCode 中打开 `daily_ai_crawler/` 目录，使用终端：
+
+```
+Ctrl+` 打开终端
+mamba activate ai_crawler
+python app.py          # 或 python main.py -v
 ```
 
-> **国外用户**: 无需代理。`use_proxy: false` 即可正常运行，所有 API（arXiv、Semantic Scholar、HuggingFace）均可直连。
-
-### 3. 运行
-
-```bash
-# 完整运行（推荐）
-python main.py -v
-
-# Windows
-run.bat -v
-
-# Linux / macOS
-bash run.sh -v
-```
-
-```bash
-# 仅查看数据库统计
-python main.py --stats
-
-# 不抓取，仅用已有数据重新生成报告
-python main.py --report-only
-```
+配合 [Claude Code](https://marketplace.visualstudio.com/items?itemName=anthropic.claude-code) 插件可 AI 辅助调试和扩展。
 
 ---
 
@@ -95,9 +90,9 @@ python main.py --report-only
 python main.py [选项]
 
   -v, --verbose    详细输出，显示每阶段耗时和条目数
-  --no-proxy       本次运行不使用代理（覆盖 config.local.yaml 设置）
+  --no-proxy       本次运行不使用代理
   --report-only    不抓取，仅从已有数据重新生成 Markdown 报告
-  --stats          显示数据库统计信息（历史记录数、源站成功率等）
+  --stats          显示数据库统计信息
 ```
 
 ---
@@ -106,18 +101,20 @@ python main.py [选项]
 
 ```
 daily_ai_crawler/
-├── main.py                        # 主入口，6阶段流水线
-├── config.py                      # 全局配置（关键词/评分/阈值）
-├── config.local.yaml              # 🔒 本地敏感配置（gitignore）
-├── config.local.yaml.example      # 配置模板
-├── sources.yaml                   # 18个预置信息源 + 搜索模板
-├── database.py                    # SQLite 数据库
-├── reporter.py                    # Markdown 报告生成器
-├── lamda_members.json             # LAMDA 268人成员名单
+├── app.py                          # 🆕 桌面应用 (Flask Web UI)
+├── main.py                         # 命令行入口，8阶段流水线
+├── config.py                       # 全局配置（关键词/评分/阈值）
+├── config.local.yaml               # 🔒 本地敏感配置（gitignore）
+├── config.local.yaml.example       # 配置模板
+├── sources.yaml                    # 18个预置信息源
+├── database.py                     # SQLite 数据库
+├── reporter.py                     # Markdown 报告生成器
+├── lamda_members.json              # LAMDA 268人成员名单
+├── build_exe.py                    # PyInstaller 一键打包脚本
 │
-├── crawlers/                      # 爬虫模块
-│   ├── base.py                    # 异步HTTP基类（代理/重试/限速）
-│   ├── rss_fetcher.py             # RSS/Atom 订阅源
+├── crawlers/                       # 爬虫模块
+│   ├── base.py                     # 异步HTTP基类（代理/重试/robots.txt）
+│   ├── rss_fetcher.py              # RSS/Atom 订阅源
 │   ├── arxiv_fetcher.py           # arXiv API 论文
 │   ├── github_fetcher.py          # GitHub Trending + Search API
 │   ├── semantic_scholar_fetcher.py # Semantic Scholar 论文 + 机构过滤
