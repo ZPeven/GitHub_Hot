@@ -174,8 +174,8 @@ def get_config():
         try:
             with open(CONFIG_PATH, "r", encoding="utf-8") as f:
                 data = _yaml.safe_load(f) or {}
-            cfg["github_token"] = _mask(data.get("github_token", ""))
-            cfg["deepseek_api_key"] = _mask(data.get("deepseek_api_key", ""))
+            cfg["has_github_token"] = bool(data.get("github_token"))
+            cfg["has_deepseek_key"] = bool(data.get("deepseek_api_key"))
             cfg["proxy"] = data.get("proxy", "")
             cfg["use_proxy"] = data.get("use_proxy", False)
             cfg["exists"] = True
@@ -198,10 +198,11 @@ def save_config():
             pass
 
     # 仅更新非脱敏字段
-    for key in ["github_token", "deepseek_api_key", "proxy", "use_proxy"]:
+    for key in ["github_token", "deepseek_api_key", "proxy"]:
         val = data.get(key)
-        if val is not None and val != "" and not val.startswith("***"):
+        if isinstance(val, str) and val and "***" not in val:
             existing[key] = val
+    # use_proxy 是布尔值，单独处理
     if "use_proxy" in data:
         existing["use_proxy"] = bool(data["use_proxy"])
 
@@ -951,11 +952,13 @@ async function openSettings() {
   document.getElementById("settings-msg").textContent = "";
   const res = await fetch("/api/config");
   const cfg = await res.json();
-  document.getElementById("cfg-github").value = cfg.github_token||"";
-  document.getElementById("cfg-deepseek").value = cfg.deepseek_api_key||"";
+  const ghEl = document.getElementById("cfg-github");
+  const dsEl = document.getElementById("cfg-deepseek");
+  ghEl.value = ""; dsEl.value = "";
+  ghEl.placeholder = cfg.has_github_token ? "已配置 · 留空保持不变" : "ghp_... 留空使用匿名限额";
+  dsEl.placeholder = cfg.has_deepseek_key ? "已配置 · 留空保持不变" : "sk-... 留空则跳过翻译";
   document.getElementById("cfg-proxy").value = cfg.proxy||"";
   document.getElementById("cfg-use-proxy").checked = cfg.use_proxy||false;
-  // 首次使用引导
   if (!cfg.exists) {
     document.getElementById("settings-msg").textContent = "首次使用，请配置后保存";
     document.getElementById("settings-msg").className = "status-msg err";

@@ -678,11 +678,13 @@ async function openSettings() {
   document.getElementById("settings-msg").textContent = "";
   const res = await fetch("/api/config");
   const cfg = await res.json();
-  document.getElementById("cfg-github").value = cfg.github_token||"";
-  document.getElementById("cfg-deepseek").value = cfg.deepseek_api_key||"";
+  const ghEl = document.getElementById("cfg-github");
+  const dsEl = document.getElementById("cfg-deepseek");
+  ghEl.value = ""; dsEl.value = "";
+  ghEl.placeholder = cfg.has_github_token ? "已配置 · 留空保持不变" : "ghp_... 留空使用匿名限额";
+  dsEl.placeholder = cfg.has_deepseek_key ? "已配置 · 留空保持不变" : "sk-... 留空则跳过翻译";
   document.getElementById("cfg-proxy").value = cfg.proxy||"";
   document.getElementById("cfg-use-proxy").checked = cfg.use_proxy||false;
-  // 首次使用引导
   if (!cfg.exists) {
     document.getElementById("settings-msg").textContent = "首次使用，请配置后保存";
     document.getElementById("settings-msg").className = "status-msg err";
