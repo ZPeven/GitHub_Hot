@@ -603,7 +603,9 @@ body {
 // ── State ──
 let currentFilename=null, originalContent="", pollTimer=null;
 
+const mdRenderer = { link(href,title,text){ return '<a href="'+href+'" target="_blank" rel="noopener noreferrer">'+text+'</a>'; } };
 marked.setOptions({breaks:true,gfm:true});
+marked.use({renderer:mdRenderer});
 loadReports();
 
 async function loadReports(){
