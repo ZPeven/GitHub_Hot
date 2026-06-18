@@ -14,24 +14,34 @@ from pathlib import Path
 from flask import Flask, jsonify, request, render_template_string, Response
 
 # ── 兼容 PyInstaller 打包 ─────────────────
-if getattr(sys, 'frozen', False):
-    _EXE_DIR = os.path.dirname(sys.executable)
+_FROZEN = getattr(sys, 'frozen', False)
+if _FROZEN:
+    _EXE_DIR = os.path.dirname(sys.executable)      # exe 所在目录（可写文件放这里）
+    _DATA_DIR = sys._MEIPASS                         # 嵌入数据解压目录（只读文件）
 else:
     _EXE_DIR = os.path.dirname(os.path.abspath(__file__))
+    _DATA_DIR = _EXE_DIR
 
-# 工作目录设为 exe 所在目录
 os.chdir(_EXE_DIR)
+
+def _data_path(filename):
+    """数据文件路径: exe内嵌 → _MEIPASS, 开发 → 项目目录"""
+    return os.path.join(_DATA_DIR, filename)
+
+def _user_path(filename):
+    """用户文件路径: 始终在exe目录下（可读写）"""
+    return os.path.join(_EXE_DIR, filename)
 
 # 覆盖 config 中的路径
 import config
 config.BASE_DIR = _EXE_DIR
-config.REPORTS_DIR = os.path.join(_EXE_DIR, "reports")
-config.DB_FILE = os.path.join(_EXE_DIR, "crawler.db")
-config.SOURCES_FILE = os.path.join(_EXE_DIR, "sources.yaml")
+config.REPORTS_DIR = _user_path("reports")
+config.DB_FILE = _user_path("crawler.db")
+config.SOURCES_FILE = _data_path("sources.yaml")
 
-# lamda_members 路径也修复
+# lamda_members: 内嵌只读文件
 import processors.lamda_matcher as lm
-lm._MEMBERS_FILE = os.path.join(_EXE_DIR, "lamda_members.json")
+lm._MEMBERS_FILE = _data_path("lamda_members.json")
 
 from config import BASE_DIR, REPORTS_DIR, DB_FILE
 
@@ -152,8 +162,8 @@ def stats():
 # 配置 API
 # ═══════════════════════════════════════════
 
-CONFIG_PATH = os.path.join(_EXE_DIR, "config.local.yaml")
-CONFIG_EXAMPLE = os.path.join(_EXE_DIR, "config.local.yaml.example")
+CONFIG_PATH = _user_path("config.local.yaml")
+CONFIG_EXAMPLE = _data_path("config.local.yaml.example")
 
 @app.route("/api/config")
 def get_config():
@@ -225,23 +235,35 @@ def _mask(s: str) -> str:
 # ═══════════════════════════════════════════
 
 def _run_crawl():
+    """直接在进程内调用爬虫（兼容 exe 打包和开发模式）"""
     global _crawl_status
+    import asyncio, io, time
+    log_buffer = io.StringIO()
+
+    class _LogCapture:
+        def write(self, s):
+            log_buffer.write(s)
+            _crawl_status["log"] = log_buffer.getvalue().split("\n")[-40:]
+        def flush(self):
+            pass
+
     try:
-        result = subprocess.run(
-            [sys.executable, os.path.join(BASE_DIR, "main.py"), "-v"],
-            capture_output=True, text=True, timeout=180,
-            cwd=BASE_DIR,
-        )
-        _crawl_status["log"] = result.stdout.split("\n")[-30:]
-        _crawl_status["log"].append(f"--- stderr ---")
-        _crawl_status["log"].extend(result.stderr.split("\n")[-10:])
-        _crawl_status["success"] = result.returncode == 0
-    except subprocess.TimeoutExpired:
-        _crawl_status["success"] = False
-        _crawl_status["log"].append("⏱️ 爬取超时 (180s)")
+        import main as main_module
+        crawler = main_module.AIHotspotCrawler(verbose=True)
+        # 临时重定向 stdout 来捕获日志
+        old_stdout = sys.stdout
+        sys.stdout = _LogCapture()
+        try:
+            asyncio.run(crawler.run())
+            _crawl_status["success"] = True
+        finally:
+            sys.stdout = old_stdout
+            crawler.db.close()
     except Exception as e:
         _crawl_status["success"] = False
+        import traceback
         _crawl_status["log"].append(f"❌ {e}")
+        _crawl_status["log"].append(traceback.format_exc()[-200:])
     _crawl_status["running"] = False
 
 
